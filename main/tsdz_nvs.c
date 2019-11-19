@@ -35,7 +35,7 @@ void tsdz_nvs_init(void) {
 	esp_err_t err = nvs_flash_init();
 	if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)  {
 		const esp_partition_t* nvs_partition =
-		esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, NULL);
+				esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, NULL);
 		if(!nvs_partition)
 			ESP_LOGE(TAG, "FATAL ERROR: No NVS partition found");
 		err = (esp_partition_erase_range(nvs_partition, 0, nvs_partition->size));

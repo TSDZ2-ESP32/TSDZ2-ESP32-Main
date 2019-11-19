@@ -13,54 +13,54 @@
 void tsdz_boot_to_factory(void) {
 	esp_partition_iterator_t pi = esp_partition_find(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_FACTORY, NULL);
 	if(pi != NULL) {
-	  const esp_partition_t* factory = esp_partition_get(pi);
-	  esp_partition_iterator_release(pi);
-	  if(esp_ota_set_boot_partition(factory) == ESP_OK)
-		  esp_restart();
+		const esp_partition_t* factory = esp_partition_get(pi);
+		esp_partition_iterator_release(pi);
+		if(esp_ota_set_boot_partition(factory) == ESP_OK)
+			esp_restart();
 	}
 }
 
 
 uint32_t filter(uint32_t ui32_new_value, uint32_t ui32_old_value, uint8_t ui8_alpha)
 {
-  if (ui8_alpha < 101)
-  {
-    uint32_t ui32_filtered_value = (((100 - ui8_alpha) * ui32_new_value) + (ui8_alpha * ui32_old_value)) / 100;
+	if (ui8_alpha < 101)
+	{
+		uint32_t ui32_filtered_value = (((100 - ui8_alpha) * ui32_new_value) + (ui8_alpha * ui32_old_value)) / 100;
 
-    if ((ui32_filtered_value == ui32_old_value) && (ui32_filtered_value < ui32_new_value)) { ++ui32_filtered_value; }
+		if ((ui32_filtered_value == ui32_old_value) && (ui32_filtered_value < ui32_new_value)) { ++ui32_filtered_value; }
 
-    return ui32_filtered_value;
-  }
-  else
-  {
-    return 0;
-  }
+		return ui32_filtered_value;
+	}
+	else
+	{
+		return 0;
+	}
 }
 
 
 int32_t map(int32_t x, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max)
 {
-  // if input min is smaller than output min, return the output min value
-  if (x < in_min) { return out_min; }
+	// if input min is smaller than output min, return the output min value
+	if (x < in_min) { return out_min; }
 
-  // if input max is bigger than output max, return the output max value
-  else if (x > in_max) { return out_max; }
+	// if input max is bigger than output max, return the output max value
+	else if (x > in_max) { return out_max; }
 
-  // map the input to the output range, round up if mapping bigger ranges to smaller ranges
-  else  if ((in_max - in_min) > (out_max - out_min)) { return (x - in_min) * (out_max - out_min + 1) / (in_max - in_min + 1) + out_min; }
+	// map the input to the output range, round up if mapping bigger ranges to smaller ranges
+	else  if ((in_max - in_min) > (out_max - out_min)) { return (x - in_min) * (out_max - out_min + 1) / (in_max - in_min + 1) + out_min; }
 
-  // map the input to the output range, round down if mapping smaller ranges to bigger ranges
-  else { return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min; }
+	// map the input to the output range, round down if mapping smaller ranges to bigger ranges
+	else { return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min; }
 }
 
 
 // return true if the crc8 of the message is correct
 uint8_t crc8(uint8_t *message, uint8_t count) {
-  uint8_t crc = 0;
-  uint8_t i;
-  for (i = 0; i < count; i++)
-    crc += message[i];
-  return crc;
+	uint8_t crc = 0;
+	uint8_t i;
+	for (i = 0; i < count; i++)
+		crc += message[i];
+	return crc;
 }
 
 
@@ -73,13 +73,13 @@ uint8_t crc8(uint8_t *message, uint8_t count) {
  */
 void crc16(uint8_t ui8_data, uint16_t* ui16_crc)
 {
-  unsigned int i;
+	unsigned int i;
 
-  *ui16_crc = *ui16_crc ^(uint16_t) ui8_data;
+	*ui16_crc = *ui16_crc ^(uint16_t) ui8_data;
 
-  for (i = 8; i > 0; i--)
-  {
-    if (*ui16_crc & 0x0001) { *ui16_crc = (*ui16_crc >> 1) ^ 0xA001; }
-    else { *ui16_crc >>= 1; }
-  }
+	for (i = 8; i > 0; i--)
+	{
+		if (*ui16_crc & 0x0001) { *ui16_crc = (*ui16_crc >> 1) ^ 0xA001; }
+		else { *ui16_crc >>= 1; }
+	}
 }

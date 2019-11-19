@@ -36,11 +36,11 @@ void app_main(void)
 	tsdz_bt_init();
 	ESP_LOGI(APP_MAIN, "bt init done");
 
-    // wait 1 sec to avoid STM8 bootloader activation
-    vTaskDelay(pdMS_TO_TICKS(500));
+	// wait 1 sec to avoid STM8 bootloader activation
+	vTaskDelay(pdMS_TO_TICKS(500));
 
-    tsdz_uart_init();
-    ESP_LOGI(APP_MAIN, "uart init done");
+	tsdz_uart_init();
+	ESP_LOGI(APP_MAIN, "uart init done");
 
 	tzdz_ds18b20_init();
 
@@ -67,33 +67,33 @@ void mainTask(void * pvParameters)
 
 	TickType_t xLastWakeUpTime = xTaskGetTickCount();
 
-    while (1) {
-    	// delay 10 ms from previous call
-    	vTaskDelayUntil(&xLastWakeUpTime, delay10ms);
-    	tsdz_uart_task();
+	while (1) {
+		// delay 10 ms from previous call
+		vTaskDelayUntil(&xLastWakeUpTime, delay10ms);
+		tsdz_uart_task();
 
-    	// run every 250ms (25 * 10ms)
-    	if (++bt_task_count >= 25) {
-    		tsdz_bt_update();
-    		bt_task_count = 0;
-    	}
-    	// run every 100ms (10 * 10ms)
-    	if (++data_task_count >= 10) {
-    		tsdz_data_update();
-    		data_task_count = 0;
-    	}
+		// run every 250ms (25 * 10ms)
+		if (++bt_task_count >= 25) {
+			tsdz_bt_update();
+			bt_task_count = 0;
+		}
+		// run every 100ms (10 * 10ms)
+		if (++data_task_count >= 10) {
+			tsdz_data_update();
+			data_task_count = 0;
+		}
 
-    	// read temperature every 1 sec (100 * 10ms)
-    	if (tsdz_cfg.ui8_esp32_temp_control) {
-    		temp_task_count++;
-    		if (temp_task_count==20) {
-        		// issue the start conversion command
-    			tzdz_ds18b20_start();
-    		} else if (temp_task_count == 100) {
-        		// after 750 ms the conversion (12 bit) is done and the value could be readed
-    			tsdz_ds18b20_read();
-    			temp_task_count = 0;
+		// read temperature every 1 sec (100 * 10ms)
+		if (tsdz_cfg.ui8_esp32_temp_control) {
+			temp_task_count++;
+			if (temp_task_count==20) {
+				// issue the start conversion command
+				tzdz_ds18b20_start();
+			} else if (temp_task_count == 100) {
+				// after 750 ms the conversion (12 bit) is done and the value could be readed
+				tsdz_ds18b20_read();
+				temp_task_count = 0;
 			}
-    	}
-    }
+		}
+	}
 }

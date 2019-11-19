@@ -26,18 +26,18 @@ static int command_cadence_calib(uint8_t* value, uint16_t len);
 
 int exec_command(uint8_t* value, uint16_t len) {
 	switch (value[0]) {
-		case CMD_GET_APP_VERSION:
-			return get_app_version();
-		case CMD_ESP_OTA:
-			return command_ota(&value[1], len-1, CMD_ESP_OTA);
-		case CMD_LOADER_OTA:
-			return command_ota(&value[1], len-1, CMD_LOADER_OTA);
-		case CMD_STM8S_OTA:
-			return command_ota(&value[1], len-1, CMD_STM8S_OTA);
-		case CMD_STM8_OTA_STATUS:
-			return command_stm8_ota_status();
-		case CMD_CADENCE_CALIBRATION:
-			return command_cadence_calib(&value[1], len-1);
+	case CMD_GET_APP_VERSION:
+		return get_app_version();
+	case CMD_ESP_OTA:
+		return command_ota(&value[1], len-1, CMD_ESP_OTA);
+	case CMD_LOADER_OTA:
+		return command_ota(&value[1], len-1, CMD_LOADER_OTA);
+	case CMD_STM8S_OTA:
+		return command_ota(&value[1], len-1, CMD_STM8S_OTA);
+	case CMD_STM8_OTA_STATUS:
+		return command_stm8_ota_status();
+	case CMD_CADENCE_CALIBRATION:
+		return command_cadence_calib(&value[1], len-1);
 	}
 	uint8_t ret_val[2] = {value[0], 0xff};
 	tsdz_bt_notify_command(ret_val, 2);
@@ -48,20 +48,20 @@ static int command_cadence_calib(uint8_t* value, uint16_t len) {
 	uint8_t ret_val[3] = {CMD_CADENCE_CALIBRATION,value[0],0};
 	uint16_t val;
 	switch (value[0]) {
-		case CALIBRATION_START:
-			ui8_cadence_sensor_calibration = 1;
-			break;
-		case CALIBRATION_STOP:
-			ui8_cadence_sensor_calibration = 0;
-			break;
-		case CALIBRATION_SAVE:
-			val = (((uint16_t) value [2]) << 8) + ((uint16_t) value [1]);
-			tsdz_cfg.ui16_cadence_sensor_pulse_high_percentage_x10 = val;
-			tsdz_nvs_update_cfg();
-			break;
-		default:
-			ret_val[2] = 0xff;
-			break;
+	case CALIBRATION_START:
+		ui8_cadence_sensor_calibration = 1;
+		break;
+	case CALIBRATION_STOP:
+		ui8_cadence_sensor_calibration = 0;
+		break;
+	case CALIBRATION_SAVE:
+		val = (((uint16_t) value [2]) << 8) + ((uint16_t) value [1]);
+		tsdz_cfg.ui16_cadence_sensor_pulse_high_percentage_x10 = val;
+		tsdz_nvs_update_cfg();
+		break;
+	default:
+		ret_val[2] = 0xff;
+		break;
 	}
 	tsdz_bt_notify_command(ret_val, 3);
 	return ret_val[2];
