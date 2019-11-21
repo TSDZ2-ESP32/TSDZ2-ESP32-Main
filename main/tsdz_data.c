@@ -182,8 +182,13 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
 	ct_oem_message[0] = CT_MSG_ID;
 
 	// battery level
-	ui16_temp = (tsdz_status.ui16_battery_voltage_x1000 / 10 / (uint16_t)tsdz_cfg.ui8_battery_cells_number)-200;
-	ct_oem_message[1] = battery_level(&ui8_error_code, ui16_temp);
+	if (tsdz_status.ui16_battery_voltage_x1000 <= (tsdz_cfg.ui16_battery_low_voltage_cut_off_x10 *100)) {
+		ui8_error_code = UNDERVOLTAGE; // battery undervoltage
+		ct_oem_message[1] = 0;
+	} else {
+		ui16_temp = (tsdz_status.ui16_battery_voltage_x1000 / 10 / (uint16_t)tsdz_cfg.ui8_battery_cells_number)-200;
+		ct_oem_message[1] = battery_level(&ui8_error_code, ui16_temp);
+	}
 
 	// undervoltage flag
 	if (ui8_error_code == UNDERVOLTAGE) {
@@ -241,7 +246,8 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
 	ct_oem_message[5] = ui8_error_code;
 
 	// wheel speed
-	if (tsdz_status.ui16_wheel_speed_x10 == 0) {
+	// wait 4 sec from startup to send the speed. Max num of ticks for OEM LCD is 0x0707
+	if (tsdz_status.ui16_wheel_speed_x10 == 0 || (xTaskGetTickCount() < pdMS_TO_TICKS(4000))) {
 		ct_oem_message[6] = 0x07;
 		ct_oem_message[7] = 0x07;
 	} else {
@@ -249,6 +255,8 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
 		// (3600/(ui16_wheel_speed_x10 * 100000)) * (ui8_oem_wheel_diameter * 25.4 * pi)  *    500)
 		//              (sec/mm)                  *          (mm/rev)                 * (ticks/sec) = ticks/rev
 		uint32_t tmp = (36 * ui8_oem_wheel_diameter * 798 * 5) / (tsdz_status.ui16_wheel_speed_x10 *100);
+		if (tmp > 0x0707)
+			tmp = 0x0707;
 		ct_oem_message[6] = (uint8_t) tmp;
 		ct_oem_message[7] = (uint8_t) (tmp >> 8);
 	}
@@ -327,8 +335,8 @@ void processControllerMessage(const uint8_t ct_os_message[]) {
 }
 
 bool getControllerMessage(uint8_t lcd_os_message[]) {
-	//if (!lcdMessageReceived)
-	//	return false;
+	if (!lcdMessageReceived)
+		return false;
 
 	// start up byte
 	lcd_os_message[0] = LCD_MSG_ID;
@@ -525,18 +533,18 @@ void energy(void)
 
 uint8_t battery_level(uint8_t* error_code, const uint16_t ui16_cell_voltage_x100) {
 	*error_code = 0;
-	if (ui16_cell_voltage_x100 > tsdz_cfg.ui8_li_io_cell_overvolt_x100) {
+	if (ui16_cell_voltage_x100 >= tsdz_cfg.ui8_li_io_cell_overvolt_x100) {
 		// level full + overvoltage
 		*error_code = OEM_ERROR_OVERVOLTAGE;
 		return 0x0C;
-	} else if (ui16_cell_voltage_x100 > tsdz_cfg.ui8_li_io_cell_full_bars_x100) {
+	} else if (ui16_cell_voltage_x100 >= tsdz_cfg.ui8_li_io_cell_full_bars_x100) {
 		// level full
 		return 0x0C;
-	} else if (ui16_cell_voltage_x100 < tsdz_cfg.ui8_li_io_cell_empty_x100) {
-		// level 0 + undervoltage
-		*error_code = UNDERVOLTAGE; // battery undervoltage
+	} else if (ui16_cell_voltage_x100 <= tsdz_cfg.ui8_li_io_cell_empty_x100) {
+		// level 0
+		// *error_code = UNDERVOLTAGE; // battery undervoltage
 		return 0x00;
-	} else if (ui16_cell_voltage_x100 < tsdz_cfg.ui8_li_io_cell_one_bar_x100) {
+	} else if (ui16_cell_voltage_x100 <= tsdz_cfg.ui8_li_io_cell_one_bar_x100) {
 		// level 1
 		return 0x01;
 	} else {
@@ -544,6 +552,6 @@ uint8_t battery_level(uint8_t* error_code, const uint16_t ui16_cell_voltage_x100
 				tsdz_cfg.ui8_li_io_cell_one_bar_x100,
 				tsdz_cfg.ui8_li_io_cell_full_bars_x100,
 				2,
-				12);
+				11);
 	}
 }
