@@ -60,7 +60,7 @@
 
 // OEM Display error codes
 // N.B.: E01, E05, E07 are not available on XH18 display
-#define OEM_NO_FAULT							0
+#define OEM_NO_ERROR							0
 #define OEM_ERROR_TORQUE_SENSOR					2 // E02
 #define OEM_ERROR_CADENCE_SENSOR_CALIBRATION	3 // E03
 #define OEM_ERROR_MOTOR_BLOCKED					4 // E04

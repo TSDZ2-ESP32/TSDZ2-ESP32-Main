@@ -117,25 +117,30 @@ void tsdz_data_update() {
 
 void processLcdMessage(const uint8_t lcd_oem_message[]) {
 	switch(lcd_oem_message[1] & 0x5E) {
-	case OEM_ASSIST_LEVEL4:
-		tsdz_status.ui8_assist_level = 4;
-		break;
-	case OEM_ASSIST_LEVEL3:
-		tsdz_status.ui8_assist_level = 3;
-		break;
-	case OEM_ASSIST_LEVEL2:
-		tsdz_status.ui8_assist_level = 2;
-		break;
-	case OEM_ASSIST_LEVEL1:
-		tsdz_status.ui8_assist_level = 1;
-		break;
-	case OEM_ASSIST_LEVEL0:
-		tsdz_status.ui8_assist_level = 0;
-		break;
+		case OEM_ASSIST_LEVEL4:
+			tsdz_status.ui8_assist_level = 4;
+			break;
+		case OEM_ASSIST_LEVEL3:
+			tsdz_status.ui8_assist_level = 3;
+			break;
+		case OEM_ASSIST_LEVEL2:
+			tsdz_status.ui8_assist_level = 2;
+			break;
+		case OEM_ASSIST_LEVEL1:
+			tsdz_status.ui8_assist_level = 1;
+			break;
+		case OEM_ASSIST_LEVEL0:
+			tsdz_status.ui8_assist_level = 0;
+			break;
 	}
 
 	// wheel diameter
 	ui8_oem_wheel_diameter = lcd_oem_message[3];
+
+	if (tsdz_status.ui8_assist_level == 0) {
+		tsdz_status.ui8_riding_mode = POWER_ASSIST_MODE;
+		goto skip;
+	}
 
 	// check if walk assist is set
 	if (lcd_oem_message[1] & 0x20) {
@@ -145,15 +150,15 @@ void processLcdMessage(const uint8_t lcd_oem_message[]) {
 
 	// check the riding mode
 	switch (ui8_oem_wheel_diameter) {
-	case 27:
-		tsdz_status.ui8_riding_mode = TORQUE_ASSIST_MODE;
-		break;
-	case 29:
-		tsdz_status.ui8_riding_mode = eMTB_ASSIST_MODE;
-		break;
-	case 26:
-	default:
-		tsdz_status.ui8_riding_mode = POWER_ASSIST_MODE;
+		case 27:
+			tsdz_status.ui8_riding_mode = TORQUE_ASSIST_MODE;
+			break;
+		case 29:
+			tsdz_status.ui8_riding_mode = eMTB_ASSIST_MODE;
+			break;
+		case 26:
+		default:
+			tsdz_status.ui8_riding_mode = POWER_ASSIST_MODE;
 	}
 
 
@@ -182,17 +187,12 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
 	ct_oem_message[0] = CT_MSG_ID;
 
 	// battery level
-	if (tsdz_status.ui16_battery_voltage_x1000 <= (tsdz_cfg.ui16_battery_low_voltage_cut_off_x10 *100)) {
-		ui8_error_code = UNDERVOLTAGE; // battery undervoltage
-		ct_oem_message[1] = 0;
-	} else {
-		ui16_temp = (tsdz_status.ui16_battery_voltage_x1000 / 10 / (uint16_t)tsdz_cfg.ui8_battery_cells_number)-200;
-		ct_oem_message[1] = battery_level(&ui8_error_code, ui16_temp);
-	}
+	ui16_temp = (tsdz_status.ui16_battery_voltage_x1000 / 10 / (uint16_t)tsdz_cfg.ui8_battery_cells_number)-200;
+	ct_oem_message[1] = battery_level(&ui8_error_code, ui16_temp);
 
 	// undervoltage flag
 	if (ui8_error_code == UNDERVOLTAGE) {
-		ui8_error_code = OEM_NO_FAULT;
+		ui8_error_code = OEM_NO_ERROR;
 		ui8_working_status |= 0x01;
 	}
 	// hold display on flag
@@ -352,33 +352,25 @@ bool getControllerMessage(uint8_t lcd_os_message[]) {
 
 	// riding mode parameter
 	switch (tsdz_status.ui8_riding_mode) {
-	case POWER_ASSIST_MODE:
-		if (tsdz_status.ui8_assist_level > 0) {
-			lcd_os_message[3] = tsdz_cfg.ui8_power_assist_level[tsdz_status.ui8_assist_level - 1];
-		} else {
-			lcd_os_message[3] = 0;
-		}
-		break;
-	case TORQUE_ASSIST_MODE:
-		if (tsdz_status.ui8_assist_level > 0) {
+		case POWER_ASSIST_MODE:
+			if (tsdz_status.ui8_assist_level > 0) {
+				lcd_os_message[3] = tsdz_cfg.ui8_power_assist_level[tsdz_status.ui8_assist_level - 1];
+			} else {
+				lcd_os_message[3] = 0;
+			}
+			break;
+		case TORQUE_ASSIST_MODE:
 			lcd_os_message[3] = tsdz_cfg.ui8_torque_assist_level[tsdz_status.ui8_assist_level - 1];
-		} else {
-			lcd_os_message[3] = 0;
-		}
-		break;
-	case eMTB_ASSIST_MODE:
-		lcd_os_message[3] = tsdz_cfg.ui8_eMTB_assist_sensitivity;
-		break;
-	case WALK_ASSIST_MODE:
-		if (tsdz_status.ui8_assist_level > 0) {
+			break;
+		case eMTB_ASSIST_MODE:
+			lcd_os_message[3] = tsdz_cfg.ui8_eMTB_assist_sensitivity;
+			break;
+		case WALK_ASSIST_MODE:
 			lcd_os_message[3] = tsdz_cfg.ui8_walk_assist_level[tsdz_status.ui8_assist_level - 1];
-		} else {
+			break;
+		default:
 			lcd_os_message[3] = 0;
-		}
-		break;
-	default:
-		lcd_os_message[3] = 0;
-		break;
+			break;
 	}
 
 	// set lights state
@@ -532,7 +524,7 @@ void energy(void)
 
 
 uint8_t battery_level(uint8_t* error_code, const uint16_t ui16_cell_voltage_x100) {
-	*error_code = 0;
+	*error_code = OEM_NO_ERROR;
 	if (ui16_cell_voltage_x100 >= tsdz_cfg.ui8_li_io_cell_overvolt_x100) {
 		// level full + overvoltage
 		*error_code = OEM_ERROR_OVERVOLTAGE;
@@ -541,8 +533,8 @@ uint8_t battery_level(uint8_t* error_code, const uint16_t ui16_cell_voltage_x100
 		// level full
 		return 0x0C;
 	} else if (ui16_cell_voltage_x100 <= tsdz_cfg.ui8_li_io_cell_empty_x100) {
-		// level 0
-		// *error_code = UNDERVOLTAGE; // battery undervoltage
+		// level 0 (1 bar blinking)
+		*error_code = UNDERVOLTAGE; // battery undervoltage
 		return 0x00;
 	} else if (ui16_cell_voltage_x100 <= tsdz_cfg.ui8_li_io_cell_one_bar_x100) {
 		// level 1
