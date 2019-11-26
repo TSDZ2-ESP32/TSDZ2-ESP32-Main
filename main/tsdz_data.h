@@ -101,11 +101,12 @@ typedef struct _tsdz_cfg
 	volatile uint8_t ui8_street_mode_throttle_enabled;
 	volatile uint8_t ui8_street_mode_power_limit_div25;
 	volatile uint8_t ui8_street_mode_speed_limit;
-	volatile uint8_t ui8_eMTB_assist_sensitivity;
+	volatile uint8_t ui8_esp32_temp_control;
+	volatile uint8_t ui8_cadence_assist_level[4];
 	volatile uint8_t ui8_power_assist_level[4];
 	volatile uint8_t ui8_torque_assist_level[4];
+	volatile uint8_t ui8_eMTB_assist_sensitivity[4];
 	volatile uint8_t ui8_walk_assist_level[4];
-	volatile uint8_t ui8_esp32_temp_control;
 } struct_tsdz_cfg;
 
 #pragma pack(1)

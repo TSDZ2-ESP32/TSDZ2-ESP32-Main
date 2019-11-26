@@ -17,61 +17,62 @@
 #define TAG "tsdz_data"
 
 struct_tsdz_status tsdz_status = {
-		.ui8_riding_mode = OFF_MODE,
-		.ui8_assist_level = 0,
-		.ui16_wheel_speed_x10 = 0,
-		.ui8_pedal_cadence_RPM = 0,
-		.ui16_motor_temperaturex10 = 0,
-		.ui16_pedal_power_x10 = 0,
-		.ui16_battery_voltage_x1000 = 0,
-		.ui8_battery_current_x10 = 0,
-		.ui8_controller_system_state = 0,
-		.ui8_braking = 0
+	.ui8_riding_mode = OFF_MODE,
+	.ui8_assist_level = 0,
+	.ui16_wheel_speed_x10 = 0,
+	.ui8_pedal_cadence_RPM = 0,
+	.ui16_motor_temperaturex10 = 0,
+	.ui16_pedal_power_x10 = 0,
+	.ui16_battery_voltage_x1000 = 0,
+	.ui8_battery_current_x10 = 0,
+	.ui8_controller_system_state = 0,
+	.ui8_braking = 0
 };
 
 struct_tsdz_debug tsdz_debug = {
-		.ui8_adc_throttle = 0,
-		.ui8_throttle = 0,
-		.ui16_adc_pedal_torque_sensor = 0,
-		.ui8_duty_cycle = 0,
-		.ui16_motor_speed_erps = 0,
-		.ui8_foc_angle = 0,
-		.ui16_pedal_torque_x100 = 0,
-		.ui16_cadence_sensor_pulse_high_percentage_x10 = 0
+	.ui8_adc_throttle = 0,
+	.ui8_throttle = 0,
+	.ui16_adc_pedal_torque_sensor = 0,
+	.ui8_duty_cycle = 0,
+	.ui16_motor_speed_erps = 0,
+	.ui8_foc_angle = 0,
+	.ui16_pedal_torque_x100 = 0,
+	.ui16_cadence_sensor_pulse_high_percentage_x10 = 0
 };
 
 const struct_tsdz_cfg tsdz_default_cfg = {
-		.ui8_motor_type = 1,
-		.ui8_motor_temperature_min_value_to_limit = 65,
-		.ui8_motor_temperature_max_value_to_limit = 80,
-		.ui8_motor_acceleration = 0,
-		.ui8_cadence_sensor_mode = STANDARD_MODE,
-		.ui16_cadence_sensor_pulse_high_percentage_x10 = 500,
-		.ui8_pedal_torque_per_10_bit_ADC_step_x100 = 67,
-		.ui8_optional_ADC_function = 0,
-		.ui8_assist_without_pedal_rotation_threshold = 0,
-		.ui16_wheel_perimeter = 2300,
-		.ui8_oem_wheel_divisor = 125,
-		.ui16_battery_voltage_reset_wh_counter_x10 = 416, // 41.6V
-		.ui8_battery_max_current = 15,
-		.ui8_target_max_battery_power_div25 = 10,
-		.ui8_battery_cells_number = 10,
-		.ui16_battery_pack_resistance_x1000 = 180,
-		.ui16_battery_low_voltage_cut_off_x10 = 290,
-		.ui8_li_io_cell_overvolt_x100 = 225, // mV*10-200 (225 -> 200+225 -> 425 -> 4.25V)
-		.ui8_li_io_cell_full_bars_x100 = 200,
-		.ui8_li_io_cell_one_bar_x100 = 130,
-		.ui8_li_io_cell_empty_x100 = 100,
-		.ui8_street_mode_enabled = 0,
-		.ui8_street_mode_power_limit_enabled = 0,
-		.ui8_street_mode_throttle_enabled = 0,
-		.ui8_street_mode_power_limit_div25 = 10,
-		.ui8_street_mode_speed_limit = 25,
-		.ui8_eMTB_assist_sensitivity = 10,
-		.ui8_power_assist_level = {5,10,20,30},
-		.ui8_torque_assist_level = {15,40,65,90},
-		.ui8_walk_assist_level = {20,30,40,48},
-		.ui8_esp32_temp_control = 0
+	.ui8_motor_type = 1,
+	.ui8_motor_temperature_min_value_to_limit = 65,
+	.ui8_motor_temperature_max_value_to_limit = 80,
+	.ui8_motor_acceleration = 0,
+	.ui8_cadence_sensor_mode = STANDARD_MODE,
+	.ui16_cadence_sensor_pulse_high_percentage_x10 = 500,
+	.ui8_pedal_torque_per_10_bit_ADC_step_x100 = 67,
+	.ui8_optional_ADC_function = 0,
+	.ui8_assist_without_pedal_rotation_threshold = 0,
+	.ui16_wheel_perimeter = 2300,
+	.ui8_oem_wheel_divisor = 125,
+	.ui16_battery_voltage_reset_wh_counter_x10 = 416, // 41.6V
+	.ui8_battery_max_current = 15,
+	.ui8_target_max_battery_power_div25 = 10,
+	.ui8_battery_cells_number = 10,
+	.ui16_battery_pack_resistance_x1000 = 180,
+	.ui16_battery_low_voltage_cut_off_x10 = 290,
+	.ui8_li_io_cell_overvolt_x100 = 225, // mV*10-200 (225 -> 200+225 -> 425 -> 4.25V)
+	.ui8_li_io_cell_full_bars_x100 = 200,
+	.ui8_li_io_cell_one_bar_x100 = 130,
+	.ui8_li_io_cell_empty_x100 = 100,
+	.ui8_street_mode_enabled = 0,
+	.ui8_street_mode_power_limit_enabled = 0,
+	.ui8_street_mode_throttle_enabled = 0,
+	.ui8_street_mode_power_limit_div25 = 10,
+	.ui8_street_mode_speed_limit = 25,
+	.ui8_esp32_temp_control = 0,
+	.ui8_cadence_assist_level = {40,60,80,100},
+	.ui8_power_assist_level = {5,10,20,30},
+	.ui8_torque_assist_level = {15,40,65,90},
+	.ui8_eMTB_assist_sensitivity = {6,10,14,18},
+	.ui8_walk_assist_level = {20,30,40,48},
 };
 
 
@@ -117,21 +118,21 @@ void tsdz_data_update() {
 
 void processLcdMessage(const uint8_t lcd_oem_message[]) {
 	switch(lcd_oem_message[1] & 0x5E) {
-		case OEM_ASSIST_LEVEL4:
-			tsdz_status.ui8_assist_level = 4;
-			break;
-		case OEM_ASSIST_LEVEL3:
-			tsdz_status.ui8_assist_level = 3;
-			break;
-		case OEM_ASSIST_LEVEL2:
-			tsdz_status.ui8_assist_level = 2;
-			break;
-		case OEM_ASSIST_LEVEL1:
-			tsdz_status.ui8_assist_level = 1;
-			break;
-		case OEM_ASSIST_LEVEL0:
-			tsdz_status.ui8_assist_level = 0;
-			break;
+	case OEM_ASSIST_LEVEL4:
+		tsdz_status.ui8_assist_level = 4;
+		break;
+	case OEM_ASSIST_LEVEL3:
+		tsdz_status.ui8_assist_level = 3;
+		break;
+	case OEM_ASSIST_LEVEL2:
+		tsdz_status.ui8_assist_level = 2;
+		break;
+	case OEM_ASSIST_LEVEL1:
+		tsdz_status.ui8_assist_level = 1;
+		break;
+	case OEM_ASSIST_LEVEL0:
+		tsdz_status.ui8_assist_level = 0;
+		break;
 	}
 
 	// wheel diameter
@@ -153,10 +154,12 @@ void processLcdMessage(const uint8_t lcd_oem_message[]) {
 		case 27:
 			tsdz_status.ui8_riding_mode = TORQUE_ASSIST_MODE;
 			break;
+		case 28:
+			tsdz_status.ui8_riding_mode = CADENCE_ASSIST_MODE;
+			break;
 		case 29:
 			tsdz_status.ui8_riding_mode = eMTB_ASSIST_MODE;
 			break;
-		case 26:
 		default:
 			tsdz_status.ui8_riding_mode = POWER_ASSIST_MODE;
 	}
@@ -359,11 +362,14 @@ bool getControllerMessage(uint8_t lcd_os_message[]) {
 				lcd_os_message[3] = 0;
 			}
 			break;
+		case CADENCE_ASSIST_MODE:
+			lcd_os_message[3] = tsdz_cfg.ui8_cadence_assist_level[tsdz_status.ui8_assist_level - 1];
+			break;
 		case TORQUE_ASSIST_MODE:
 			lcd_os_message[3] = tsdz_cfg.ui8_torque_assist_level[tsdz_status.ui8_assist_level - 1];
 			break;
 		case eMTB_ASSIST_MODE:
-			lcd_os_message[3] = tsdz_cfg.ui8_eMTB_assist_sensitivity;
+			lcd_os_message[3] = tsdz_cfg.ui8_eMTB_assist_sensitivity[tsdz_status.ui8_assist_level - 1];
 			break;
 		case WALK_ASSIST_MODE:
 			lcd_os_message[3] = tsdz_cfg.ui8_walk_assist_level[tsdz_status.ui8_assist_level - 1];

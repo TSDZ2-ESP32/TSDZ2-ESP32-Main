@@ -16,7 +16,7 @@
 
 #define TAG "tsdz_nvs"
 
-static const uint8_t NVS_KEY_VAL = 0xDD;
+static const uint8_t NVS_KEY_VAL = 0x07;
 
 static const char* NVS_KEY = "key";
 static const char* CFG_KEY ="cfg";
@@ -59,9 +59,15 @@ void tsdz_nvs_read_cfg(void) {
 
 	size_t len;
 	err = nvs_get_blob(my_handle, CFG_KEY, &tsdz_cfg, &len);
-	if ((err != ESP_OK) || (len != sizeof(tsdz_cfg)))
+	if ((err != ESP_OK) || (len != sizeof(tsdz_cfg))) {
 		ESP_LOGE(TAG, "FATAL ERROR: Unable to read Configuration from nvs");
-	nvs_get_u32(my_handle, WH_OFFST_KEY, &ui32_wh_x10_offset);
+		tsdz_cfg = tsdz_default_cfg;
+	}
+	err = nvs_get_u32(my_handle, WH_OFFST_KEY, &ui32_wh_x10_offset);
+	if (err != ESP_OK) {
+		ESP_LOGE(TAG, "FATAL ERROR: Unable to read Wh offset from nvs");
+		ui32_wh_x10_offset = 0;
+	}
 }
 
 void tsdz_nvs_update_cfg(void) {
@@ -74,19 +80,20 @@ void tsdz_nvs_update_cfg(void) {
 }
 
 void tsdz_nvs_write_default_cfg(void) {
-	ESP_LOGI(TAG, "NEW NVS KEY !!!!!!!");
+	ESP_LOGI(TAG, "NEW NVS KEY !! - Reset to Default Configuration");
 	esp_err_t err = nvs_erase_all(my_handle);
 	if (err != ESP_OK)
-		ESP_LOGE(TAG, "FATAL ERROR: Unable to erase the nvs partition");
+		ESP_LOGE(TAG, "FATAL ERROR: Unable to erase the nvs partition: %d", err);
 	err = nvs_set_u8(my_handle, NVS_KEY, NVS_KEY_VAL);
 	if(err != ESP_OK)
-		ESP_LOGE(TAG, "FATAL ERROR: Unable to write nvs key");
+		ESP_LOGE(TAG, "FATAL ERROR: Unable to write nvs key: %d", err);
 	err = nvs_set_blob(my_handle, CFG_KEY, &tsdz_default_cfg, sizeof(tsdz_default_cfg));
+	err |= nvs_set_u32 (my_handle, WH_OFFST_KEY, 0);
 	if(err != ESP_OK)
-		ESP_LOGE(TAG, "FATAL ERROR: Unable to write default configuration");
+		ESP_LOGE(TAG, "FATAL ERROR: Unable to write default configuration: %d", err);
 	err = nvs_commit(my_handle);
 	if (err != ESP_OK)
-		ESP_LOGE(TAG, "FATAL ERROR: Unable to commit nvs");
+		ESP_LOGE(TAG, "FATAL ERROR: Unable to commit nvs: %d", err);
 }
 
 void tsdz_nvs_update_whOffset(void) {
