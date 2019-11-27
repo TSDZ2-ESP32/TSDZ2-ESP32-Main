@@ -26,7 +26,8 @@ struct_tsdz_status tsdz_status = {
 	.ui16_battery_voltage_x1000 = 0,
 	.ui8_battery_current_x10 = 0,
 	.ui8_controller_system_state = 0,
-	.ui8_braking = 0
+	.ui8_braking = 0,
+	.ui8_street_mode_enabled = 0
 };
 
 struct_tsdz_debug tsdz_debug = {
@@ -51,7 +52,7 @@ const struct_tsdz_cfg tsdz_default_cfg = {
 	.ui8_optional_ADC_function = 0,
 	.ui8_assist_without_pedal_rotation_threshold = 0,
 	.ui16_wheel_perimeter = 2300,
-	.ui8_oem_wheel_divisor = 125,
+	.ui8_cruise_mode_enabled = 0,
 	.ui16_battery_voltage_reset_wh_counter_x10 = 416, // 41.6V
 	.ui8_battery_max_current = 15,
 	.ui8_target_max_battery_power_div25 = 10,
@@ -143,10 +144,18 @@ void processLcdMessage(const uint8_t lcd_oem_message[]) {
 		goto skip;
 	}
 
-	// check if walk assist is set
+	// check if long hold down button
 	if (lcd_oem_message[1] & 0x20) {
-		tsdz_status.ui8_riding_mode = WALK_ASSIST_MODE;
-		goto skip;
+		if ((tsdz_status.ui16_wheel_speed_x10 < WALK_ASSIST_THRESHOLD_SPEED_X10) &&
+		          (tsdz_status.ui8_riding_mode != CRUISE_MODE)) {
+			tsdz_status.ui8_riding_mode = WALK_ASSIST_MODE;
+			goto skip;
+		} else if ((tsdz_cfg.ui8_cruise_mode_enabled) &&
+	               (tsdz_status.ui16_wheel_speed_x10 > CRUISE_THRESHOLD_SPEED_X10) &&
+				   (tsdz_status.ui8_riding_mode != WALK_ASSIST_MODE)) {
+			tsdz_status.ui8_riding_mode = CRUISE_MODE;
+			goto skip;
+	    }
 	}
 
 	// check the riding mode
@@ -172,6 +181,10 @@ void processLcdMessage(const uint8_t lcd_oem_message[]) {
 
 	// max speed
 	ui8_oem_wheel_max_speed = lcd_oem_message[5];
+	if (ui8_oem_wheel_max_speed > 25)
+		tsdz_status.ui8_street_mode_enabled = 0;
+	else
+		tsdz_status.ui8_street_mode_enabled = 1;
 	lcdMessageReceived = true;
 }
 
@@ -254,10 +267,13 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
 		ct_oem_message[6] = 0x07;
 		ct_oem_message[7] = 0x07;
 	} else {
-		// calculate the nr. of clock ticks of OEM LCD for one wheel revolution (1 tick is 1/500 sec)
-		// (3600/(ui16_wheel_speed_x10 * 100000)) * (ui8_oem_wheel_diameter * 25.4 * pi)  *    500)
-		//              (sec/mm)                  *          (mm/rev)                 * (ticks/sec) = ticks/rev
-		uint32_t tmp = (36 * ui8_oem_wheel_diameter * 798 * 5) / (tsdz_status.ui16_wheel_speed_x10 *100);
+		// calculate the nr. of clock ticks of OEM LCD for one OEM wheel revolution (1 tick is 1/500 sec)
+		// (3600/(ui16_wheel_speed_x10 * 100000)) * (ui8_oem_wheel_diameter * 25.4 * pi) *    500)
+		//              (sec/mm)                  *          (mm/rev)                    * (ticks/sec) = ticks/rev
+		// and then using integer division round.
+		// result = (dividend + (divisor / 2)) / divisor   (Eg. 16 / 10 -> 2  and  14 / 10 -> 1)
+		uint32_t tmp = ((ui8_oem_wheel_diameter * 1436336) + (tsdz_status.ui16_wheel_speed_x10 * 500)) / (tsdz_status.ui16_wheel_speed_x10 * 1000);
+		// limit max value to 0x0707 (0 Km/h for OEM LCD)
 		if (tmp > 0x0707)
 			tmp = 0x0707;
 		ct_oem_message[6] = (uint8_t) tmp;
@@ -389,11 +405,8 @@ bool getControllerMessage(uint8_t lcd_os_message[]) {
 		lcd_os_message[6] = (uint8_t) (tsdz_cfg.ui16_battery_low_voltage_cut_off_x10 >> 8);
 
 		// wheel max speed
-		if (tsdz_cfg.ui8_street_mode_enabled) {
-			lcd_os_message[7] = tsdz_cfg.ui8_street_mode_speed_limit;
-		} else {
-			lcd_os_message[7] = ui8_oem_wheel_max_speed;
-		}
+		lcd_os_message[7] = ui8_oem_wheel_max_speed;
+
 		break;
 	case 1:
 		// wheel perimeter
@@ -401,7 +414,7 @@ bool getControllerMessage(uint8_t lcd_os_message[]) {
 		lcd_os_message[6] = (uint8_t) (tsdz_cfg.ui16_wheel_perimeter >> 8);
 
 		// optional ADC function, disable throttle if set to be disabled in Street Mode
-		if (tsdz_cfg.ui8_street_mode_enabled && !tsdz_cfg.ui8_street_mode_throttle_enabled && tsdz_cfg.ui8_optional_ADC_function == THROTTLE_CONTROL) {
+		if (tsdz_status.ui8_street_mode_enabled && !tsdz_cfg.ui8_street_mode_throttle_enabled && tsdz_cfg.ui8_optional_ADC_function == THROTTLE_CONTROL) {
 			lcd_os_message[7] = 0;
 		} else {
 			lcd_os_message[7] = tsdz_cfg.ui8_optional_ADC_function;
@@ -446,7 +459,7 @@ bool getControllerMessage(uint8_t lcd_os_message[]) {
 			lcd_os_message[6] = tsdz_cfg.ui8_battery_max_current;
 
 		// battery power limit
-		if (tsdz_cfg.ui8_street_mode_enabled && tsdz_cfg.ui8_street_mode_power_limit_enabled) {
+		if (tsdz_status.ui8_street_mode_enabled && tsdz_cfg.ui8_street_mode_power_limit_enabled) {
 			lcd_os_message[7] = tsdz_cfg.ui8_street_mode_power_limit_div25;
 		} else {
 			lcd_os_message[7] = tsdz_cfg.ui8_target_max_battery_power_div25;
@@ -496,7 +509,7 @@ int tsdz_update_cfg(struct_tsdz_cfg *new_cfg) {
 				(new_cfg->ui8_cadence_sensor_mode > CALIBRATION_MODE) ||
 				(new_cfg->ui8_optional_ADC_function > 2) ||
 				(new_cfg->ui8_battery_cells_number > 15) ||
-				(new_cfg->ui8_street_mode_enabled > 1) ||
+				(new_cfg->ui8_cruise_mode_enabled > 1) ||
 				(new_cfg->ui8_street_mode_power_limit_enabled > 1) ||
 				(new_cfg->ui8_street_mode_power_limit_enabled > 1)) {
 			ESP_LOGI(TAG,"tsdz_update_cfg VALUES OUT OF RANGE");

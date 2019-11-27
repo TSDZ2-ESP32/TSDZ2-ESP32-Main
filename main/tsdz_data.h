@@ -51,6 +51,9 @@
 #define ERROR_TEMPERATURE_LIMIT                   8
 #define ERROR_TEMPERATURE_MAX                     9
 
+#define WALK_ASSIST_THRESHOLD_SPEED_X10 		80 // 8.0 Km/h
+#define CRUISE_THRESHOLD_SPEED_X10 				90 // 9.0 Km/h
+
 // OEM Display Status byte masks
 #define OEM_ASSIST_LEVEL0			0x10
 #define OEM_ASSIST_LEVEL1			0x40
@@ -85,7 +88,7 @@ typedef struct _tsdz_cfg
 	volatile uint8_t ui8_assist_without_pedal_rotation_threshold;
 	volatile uint8_t ui8_lights_configuration;
 	volatile uint16_t ui16_wheel_perimeter;
-	volatile uint8_t ui8_oem_wheel_divisor;
+	volatile uint8_t ui8_cruise_mode_enabled;
 	volatile uint16_t ui16_battery_voltage_reset_wh_counter_x10;
 	volatile uint8_t ui8_battery_max_current;
 	volatile uint8_t ui8_target_max_battery_power_div25;
@@ -123,6 +126,7 @@ typedef struct _tsdz_status
 	volatile uint8_t ui8_controller_system_state;
 	volatile uint8_t ui8_braking;
 	volatile uint16_t ui16_battery_wh;
+	volatile uint8_t ui8_street_mode_enabled;
 } struct_tsdz_status;
 
 #pragma pack(1)
