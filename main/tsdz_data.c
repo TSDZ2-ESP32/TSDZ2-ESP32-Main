@@ -94,20 +94,19 @@ uint32_t      		ui32_wh_x10_offset = 0;
 volatile uint8_t ui8_cadence_sensor_calibration = 0;
 
 static uint8_t ui8_message_ID = 0;
+static uint8_t ui8_BatteryLevel = 0;
+static uint8_t ui8_BatteryError = 0;
 
-static bool lcdMessageReceived = false;
 
-uint32_t filter(uint32_t ui32_new_value, uint32_t ui32_old_value, uint8_t ui8_alpha);
-int32_t map(int32_t x, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max);
-uint8_t battery_level(uint8_t* error_code, const uint16_t ui16_cell_voltage_x100);
-void energy(void);
+void update_battery();
+void update_energy(void);
 
 // called every 100 ms
 void tsdz_data_update() {
 	static uint32_t lastUpdateValue;
 
 	// calculate Wh consumption
-	energy();
+	update_energy();
 
 	// save Wh consumed every 1 Wh increment
 	if ((lastUpdateValue/10) != (ui32_wh_x10/10)) {
@@ -119,21 +118,21 @@ void tsdz_data_update() {
 
 void processLcdMessage(const uint8_t lcd_oem_message[]) {
 	switch(lcd_oem_message[1] & 0x5E) {
-	case OEM_ASSIST_LEVEL4:
-		tsdz_status.ui8_assist_level = 4;
-		break;
-	case OEM_ASSIST_LEVEL3:
-		tsdz_status.ui8_assist_level = 3;
-		break;
-	case OEM_ASSIST_LEVEL2:
-		tsdz_status.ui8_assist_level = 2;
-		break;
-	case OEM_ASSIST_LEVEL1:
-		tsdz_status.ui8_assist_level = 1;
-		break;
-	case OEM_ASSIST_LEVEL0:
-		tsdz_status.ui8_assist_level = 0;
-		break;
+		case OEM_ASSIST_LEVEL4:
+			tsdz_status.ui8_assist_level = 4;
+			break;
+		case OEM_ASSIST_LEVEL3:
+			tsdz_status.ui8_assist_level = 3;
+			break;
+		case OEM_ASSIST_LEVEL2:
+			tsdz_status.ui8_assist_level = 2;
+			break;
+		case OEM_ASSIST_LEVEL1:
+			tsdz_status.ui8_assist_level = 1;
+			break;
+		case OEM_ASSIST_LEVEL0:
+			tsdz_status.ui8_assist_level = 0;
+			break;
 	}
 
 	// wheel diameter
@@ -185,7 +184,6 @@ void processLcdMessage(const uint8_t lcd_oem_message[]) {
 		tsdz_status.ui8_street_mode_enabled = 0;
 	else
 		tsdz_status.ui8_street_mode_enabled = 1;
-	lcdMessageReceived = true;
 }
 
 void getLCDMessage(uint8_t ct_oem_message[]) {
@@ -195,20 +193,17 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
 	static uint8_t temperatureErrorOn = 0;
 	static uint8_t temperatureErrorCounter = 0;
 
-	uint16_t ui16_temp;
 	uint8_t  ui8_working_status = 0;
-	uint8_t  ui8_error_code;
+	uint8_t  ui8_error_code = OEM_NO_ERROR;
 
 	// start up byte
 	ct_oem_message[0] = CT_MSG_ID;
 
 	// battery level
-	ui16_temp = (tsdz_status.ui16_battery_voltage_x1000 / 10 / (uint16_t)tsdz_cfg.ui8_battery_cells_number)-200;
-	ct_oem_message[1] = battery_level(&ui8_error_code, ui16_temp);
+	ct_oem_message[1] = ui8_BatteryLevel;
 
 	// undervoltage flag
-	if (ui8_error_code == UNDERVOLTAGE) {
-		ui8_error_code = OEM_NO_ERROR;
+	if (ui8_BatteryError == BATTERY_UNDERVOLTAGE) {
 		ui8_working_status |= 0x01;
 	}
 	// hold display on flag
@@ -227,6 +222,8 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
 		ui8_error_code = OEM_ERROR_TORQUE_SENSOR;
 	else if (tsdz_status.ui8_controller_system_state == ERROR_CADENCE_SENSOR_CALIBRATION)
 		ui8_error_code = OEM_ERROR_CADENCE_SENSOR_CALIBRATION;
+	else if (ui8_BatteryError == BATTERY_OVERVOLTAGE)
+		ui8_error_code = OEM_ERROR_OVERVOLTAGE;
 	if (tsdz_cfg.ui8_esp32_temp_control || tsdz_cfg.ui8_optional_ADC_function == TEMPERATURE_CONTROL) {
 		if (tsdz_status.ui16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_max_value_to_limit*10) {
 			// Temperature Error fixed
@@ -234,15 +231,15 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
 			temperatureErrorOn = 1;
 			temperatureErrorCounter = 0;
 			ui8_error_code = OEM_ERROR_OVERTEMPERATURE;
-		} else if (tsdz_status.ui16_motor_temperaturex10 > tsdz_cfg.ui8_motor_temperature_min_value_to_limit*10) {
+		} else if (tsdz_status.ui16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_min_value_to_limit*10) {
 			// Temperature Error blinking slow to fast
 			if (temperatureError) {
 				temperatureErrorCounter++;
 				int counter = map(tsdz_status.ui16_motor_temperaturex10,
 						tsdz_cfg.ui8_motor_temperature_min_value_to_limit*10,
 						tsdz_cfg.ui8_motor_temperature_max_value_to_limit*10,
-						16,
-						4);
+						15,
+						2);
 				if (temperatureErrorCounter > counter) {
 					temperatureErrorCounter = 0;
 					temperatureErrorOn = !temperatureErrorOn;
@@ -328,14 +325,17 @@ void processControllerMessage(const uint8_t ct_os_message[]) {
 	tsdz_status.ui8_controller_system_state = ct_os_message[16];
 
 	// motor temperature
-	if (!tsdz_cfg.ui8_esp32_temp_control)
+	if (!tsdz_cfg.ui8_esp32_temp_control && (tsdz_cfg.ui8_optional_ADC_function == TEMPERATURE_CONTROL))
 		tsdz_status.ui16_motor_temperaturex10 = ct_os_message[17]*10;
 
-	if (tsdz_status.ui8_controller_system_state == NO_ERROR &&
+	update_battery();
+	if ((tsdz_status.ui8_controller_system_state == NO_ERROR) && (ui8_BatteryError == BATTERY_OVERVOLTAGE)) {
+		tsdz_status.ui8_controller_system_state = ERROR_OVERVOLTAGE;
+	} else if (tsdz_status.ui8_controller_system_state == NO_ERROR &&
 			(tsdz_cfg.ui8_esp32_temp_control || tsdz_cfg.ui8_optional_ADC_function == TEMPERATURE_CONTROL)) {
 		if (tsdz_status.ui16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_max_value_to_limit*10)
 			tsdz_status.ui8_controller_system_state = ERROR_TEMPERATURE_MAX;
-		else if (tsdz_status.ui16_motor_temperaturex10 > tsdz_cfg.ui8_motor_temperature_min_value_to_limit*10) {
+		else if (tsdz_status.ui16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_min_value_to_limit*10) {
 			tsdz_status.ui8_controller_system_state = ERROR_TEMPERATURE_LIMIT;
 		}
 	}
@@ -353,9 +353,7 @@ void processControllerMessage(const uint8_t ct_os_message[]) {
 	tsdz_debug.ui16_cadence_sensor_pulse_high_percentage_x10 = (((uint16_t) ct_os_message[26]) << 8) + ((uint16_t) ct_os_message[25]);
 }
 
-bool getControllerMessage(uint8_t lcd_os_message[]) {
-	if (!lcdMessageReceived)
-		return false;
+void getControllerMessage(uint8_t lcd_os_message[]) {
 
 	// start up byte
 	lcd_os_message[0] = LCD_MSG_ID;
@@ -399,87 +397,87 @@ bool getControllerMessage(uint8_t lcd_os_message[]) {
 	lcd_os_message[4] = ui8_oem_lights;
 
 	switch (ui8_message_ID) {
-	case 0:
-		// battery low voltage cut off x10
-		lcd_os_message[5] = (uint8_t) (tsdz_cfg.ui16_battery_low_voltage_cut_off_x10 & 0xff);
-		lcd_os_message[6] = (uint8_t) (tsdz_cfg.ui16_battery_low_voltage_cut_off_x10 >> 8);
+		case 0:
+			// battery low voltage cut off x10
+			lcd_os_message[5] = (uint8_t) (tsdz_cfg.ui16_battery_low_voltage_cut_off_x10 & 0xff);
+			lcd_os_message[6] = (uint8_t) (tsdz_cfg.ui16_battery_low_voltage_cut_off_x10 >> 8);
 
-		// wheel max speed
-		lcd_os_message[7] = ui8_oem_wheel_max_speed;
+			// wheel max speed
+			lcd_os_message[7] = ui8_oem_wheel_max_speed;
 
-		break;
-	case 1:
-		// wheel perimeter
-		lcd_os_message[5] = (uint8_t) (tsdz_cfg.ui16_wheel_perimeter & 0xff);
-		lcd_os_message[6] = (uint8_t) (tsdz_cfg.ui16_wheel_perimeter >> 8);
+			break;
+		case 1:
+			// wheel perimeter
+			lcd_os_message[5] = (uint8_t) (tsdz_cfg.ui16_wheel_perimeter & 0xff);
+			lcd_os_message[6] = (uint8_t) (tsdz_cfg.ui16_wheel_perimeter >> 8);
 
-		// optional ADC function, disable throttle if set to be disabled in Street Mode
-		if (tsdz_status.ui8_street_mode_enabled && !tsdz_cfg.ui8_street_mode_throttle_enabled && tsdz_cfg.ui8_optional_ADC_function == THROTTLE_CONTROL) {
+			// optional ADC function, disable throttle if set to be disabled in Street Mode
+			if (tsdz_status.ui8_street_mode_enabled && !tsdz_cfg.ui8_street_mode_throttle_enabled && tsdz_cfg.ui8_optional_ADC_function == THROTTLE_CONTROL) {
+				lcd_os_message[7] = 0;
+			} else {
+				lcd_os_message[7] = tsdz_cfg.ui8_optional_ADC_function;
+			}
+			break;
+		case 2:
+			// set motor type
+			lcd_os_message[5] = tsdz_cfg.ui8_motor_type;
+			// motor over temperature min value limit
+			lcd_os_message[6] = tsdz_cfg.ui8_motor_temperature_min_value_to_limit;
+			// motor over temperature max value limit
+			lcd_os_message[7] = tsdz_cfg.ui8_motor_temperature_max_value_to_limit;
+			break;
+
+		case 3:
+			lcd_os_message[5] = 0;
+			lcd_os_message[6] = 0;
 			lcd_os_message[7] = 0;
-		} else {
-			lcd_os_message[7] = tsdz_cfg.ui8_optional_ADC_function;
-		}
-		break;
-	case 2:
-		// set motor type
-		lcd_os_message[5] = tsdz_cfg.ui8_motor_type;
-		// motor over temperature min value limit
-		lcd_os_message[6] = tsdz_cfg.ui8_motor_temperature_min_value_to_limit;
-		// motor over temperature max value limit
-		lcd_os_message[7] = tsdz_cfg.ui8_motor_temperature_max_value_to_limit;
-		break;
+			break;
+		case 4:
+			// lights configuration
+			lcd_os_message[5] = tsdz_cfg.ui8_lights_configuration;
 
-	case 3:
-		lcd_os_message[5] = 0;
-		lcd_os_message[6] = 0;
-		lcd_os_message[7] = 0;
-		break;
-	case 4:
-		// lights configuration
-		lcd_os_message[5] = tsdz_cfg.ui8_lights_configuration;
+			// assist without pedal rotation threshold
+			lcd_os_message[6] = tsdz_cfg.ui8_assist_without_pedal_rotation_threshold;
 
-		// assist without pedal rotation threshold
-		lcd_os_message[6] = tsdz_cfg.ui8_assist_without_pedal_rotation_threshold;
+			// motor acceleration adjustment
+			lcd_os_message[7] = tsdz_cfg.ui8_motor_acceleration;
+			break;
+		case 5:
+			// pedal torque conversion
+			lcd_os_message[5] = tsdz_cfg.ui8_pedal_torque_per_10_bit_ADC_step_x100;
 
-		// motor acceleration adjustment
-		lcd_os_message[7] = tsdz_cfg.ui8_motor_acceleration;
-		break;
-	case 5:
-		// pedal torque conversion
-		lcd_os_message[5] = tsdz_cfg.ui8_pedal_torque_per_10_bit_ADC_step_x100;
+			// max battery current in amps
+			if (tsdz_cfg.ui8_esp32_temp_control) {
+				lcd_os_message[6] = map((uint32_t) tsdz_status.ui16_motor_temperaturex10,
+						(uint32_t) tsdz_cfg.ui8_motor_temperature_min_value_to_limit * 10,
+						(uint32_t) tsdz_cfg.ui8_motor_temperature_max_value_to_limit * 10,
+						(uint32_t) tsdz_cfg.ui8_battery_max_current,
+						(uint32_t) 0);
+			} else
+				lcd_os_message[6] = tsdz_cfg.ui8_battery_max_current;
 
-		// max battery current in amps
-		if (tsdz_cfg.ui8_esp32_temp_control) {
-			lcd_os_message[6] = map((uint32_t) tsdz_status.ui16_motor_temperaturex10,
-					(uint32_t) tsdz_cfg.ui8_motor_temperature_min_value_to_limit * 10,
-					(uint32_t) tsdz_cfg.ui8_motor_temperature_max_value_to_limit * 10,
-					(uint32_t) tsdz_cfg.ui8_battery_max_current,
-					(uint32_t) 0);
-		} else
-			lcd_os_message[6] = tsdz_cfg.ui8_battery_max_current;
+			// battery power limit
+			if (tsdz_status.ui8_street_mode_enabled && tsdz_cfg.ui8_street_mode_power_limit_enabled) {
+				lcd_os_message[7] = tsdz_cfg.ui8_street_mode_power_limit_div25;
+			} else {
+				lcd_os_message[7] = tsdz_cfg.ui8_target_max_battery_power_div25;
+			}
+			break;
+		case 6:
+			// cadence sensor mode
+			if (ui8_cadence_sensor_calibration)
+				lcd_os_message[5] = CALIBRATION_MODE;
+			else
+				lcd_os_message[5] = tsdz_cfg.ui8_cadence_sensor_mode;
 
-		// battery power limit
-		if (tsdz_status.ui8_street_mode_enabled && tsdz_cfg.ui8_street_mode_power_limit_enabled) {
-			lcd_os_message[7] = tsdz_cfg.ui8_street_mode_power_limit_div25;
-		} else {
-			lcd_os_message[7] = tsdz_cfg.ui8_target_max_battery_power_div25;
-		}
-		break;
-	case 6:
-		// cadence sensor mode
-		if (ui8_cadence_sensor_calibration)
-			lcd_os_message[5] = CALIBRATION_MODE;
-		else
-			lcd_os_message[5] = tsdz_cfg.ui8_cadence_sensor_mode;
-
-		// cadence sensor pulse high percentage
-		uint16_t ui16_temp = tsdz_cfg.ui16_cadence_sensor_pulse_high_percentage_x10;
-		lcd_os_message[6] = (uint8_t) (ui16_temp & 0xff);
-		lcd_os_message[7] = (uint8_t) (ui16_temp >> 8);
-		break;
-	default:
-		ui8_message_ID = 0;
-		break;
+			// cadence sensor pulse high percentage
+			uint16_t ui16_temp = tsdz_cfg.ui16_cadence_sensor_pulse_high_percentage_x10;
+			lcd_os_message[6] = (uint8_t) (ui16_temp & 0xff);
+			lcd_os_message[7] = (uint8_t) (ui16_temp >> 8);
+			break;
+		default:
+			ui8_message_ID = 0;
+			break;
 	}
 
 	// prepare crc of the package
@@ -494,9 +492,6 @@ bool getControllerMessage(uint8_t lcd_os_message[]) {
 	lcd_os_message[LCD_OS_MSG_BYTES-1] = (uint8_t) (ui16_crc_tx >> 8) & 0xff;
 
 	if (++ui8_message_ID > 6) { ui8_message_ID = 0; }
-
-	lcdMessageReceived = false;
-	return true;
 }
 
 
@@ -523,7 +518,7 @@ int tsdz_update_cfg(struct_tsdz_cfg *new_cfg) {
 }
 
 
-void energy(void)
+void update_energy(void)
 {
 	static uint8_t ui8_wh_reset;
 
@@ -542,24 +537,25 @@ void energy(void)
 }
 
 
-uint8_t battery_level(uint8_t* error_code, const uint16_t ui16_cell_voltage_x100) {
-	*error_code = OEM_NO_ERROR;
+void update_battery() {
+	uint16_t ui16_cell_voltage_x100 = (tsdz_status.ui16_battery_voltage_x1000 / 10 / (uint16_t)tsdz_cfg.ui8_battery_cells_number)-200;
+	ui8_BatteryError = NO_ERROR;
 	if (ui16_cell_voltage_x100 >= tsdz_cfg.ui8_li_io_cell_overvolt_x100) {
 		// level full + overvoltage
-		*error_code = OEM_ERROR_OVERVOLTAGE;
-		return 0x0C;
+		ui8_BatteryError = BATTERY_OVERVOLTAGE;
+		ui8_BatteryLevel = 0x0C;
 	} else if (ui16_cell_voltage_x100 >= tsdz_cfg.ui8_li_io_cell_full_bars_x100) {
 		// level full
-		return 0x0C;
+		ui8_BatteryLevel = 0x0C;
 	} else if (ui16_cell_voltage_x100 <= tsdz_cfg.ui8_li_io_cell_empty_x100) {
 		// level 0 (1 bar blinking)
-		*error_code = UNDERVOLTAGE; // battery undervoltage
-		return 0x00;
+		ui8_BatteryError = BATTERY_UNDERVOLTAGE; // battery undervoltage
+		ui8_BatteryLevel = 0x00;
 	} else if (ui16_cell_voltage_x100 <= tsdz_cfg.ui8_li_io_cell_one_bar_x100) {
 		// level 1
-		return 0x01;
+		ui8_BatteryLevel = 0x01;
 	} else {
-		return map(ui16_cell_voltage_x100,
+		ui8_BatteryLevel = map(ui16_cell_voltage_x100,
 				tsdz_cfg.ui8_li_io_cell_one_bar_x100,
 				tsdz_cfg.ui8_li_io_cell_full_bars_x100,
 				2,

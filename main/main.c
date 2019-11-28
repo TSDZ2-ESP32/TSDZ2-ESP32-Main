@@ -42,7 +42,7 @@ void app_main(void)
 	tsdz_uart_init();
 	ESP_LOGI(APP_MAIN, "uart init done");
 
-	tzdz_ds18b20_init();
+	//tzdz_ds18b20_init();
 
 	xTaskCreate( mainTask, "main_task", 2048, NULL, 5, &mainTaskHandle );
 	if(mainTaskHandle == NULL)

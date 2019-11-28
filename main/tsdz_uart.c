@@ -92,8 +92,12 @@ void tsdz_uart_init(void) {
 
 void tsdz_uart_task(void) {
 	// Read messages coming from LCD
-	if (lcdMessageReceived())
+	if (lcdMessageReceived()) {
 		processLcdMessage(lcd_recived_msg);
+		getControllerMessage(ct_send_msg);
+		uart_write_bytes(CT_UART, (char*)ct_send_msg, (size_t)LCD_OS_MSG_BYTES);
+		ESP_LOGI(TAG, "Controller Message Sent: %s", bytesToHex(ct_send_msg,LCD_OS_MSG_BYTES));
+	}
 
 	// Read messages from Controller and send to LCD and controller
 	if (ctMessageReceived()) {
@@ -101,10 +105,6 @@ void tsdz_uart_task(void) {
 		getLCDMessage(lcd_send_msg);
 		uart_write_bytes(LCD_UART, (char*)lcd_send_msg, (size_t)CT_OEM_MSG_BYTES);
 		ESP_LOGI(TAG, "LCD Message Sent: %s", bytesToHex(lcd_send_msg,CT_OEM_MSG_BYTES));
-		if (getControllerMessage(ct_send_msg)) {
-			uart_write_bytes(CT_UART, (char*)ct_send_msg, (size_t)LCD_OS_MSG_BYTES);
-			ESP_LOGI(TAG, "Controller Message Sent: %s", bytesToHex(ct_send_msg,LCD_OS_MSG_BYTES));
-		}
 	}
 }
 
@@ -138,7 +138,7 @@ bool lcdMessageReceived(void) {
 					lcd_rx_counter = 0;
 					if (checkCRC(lcd_recived_msg, LCD_OEM_MSG_BYTES)) {
 						//ESP_LOGI(TAG, "lcdMessageReceived: %s", bytesToHex(lcd_recived_msg,LCD_OEM_MSG_BYTES));
-						ESP_LOGI(TAG, "LCD MsgRec");
+						ESP_LOGI(TAG, "LCD Message Received");
 						return true;
 					} else
 						ESP_LOGE(TAG,"LCD-CRC-ERROR");
@@ -182,7 +182,7 @@ bool ctMessageReceived(void) {
 					ct_rx_counter = 0;
 					if (checkCRC16(ct_received_msg, CT_OS_MSG_BYTES)) {
 						//ESP_LOGI(TAG, "ctMessageReceived: %s", bytesToHex(ct_received_msg,CT_OS_MSG_BYTES));
-						ESP_LOGI(TAG, "CT MsgRec");
+						ESP_LOGI(TAG, "CT Message Received");
 						return true;
 					} else
 						ESP_LOGE(TAG,"CONTROLLER-CRC-ERROR %s", bytesToHex(ct_received_msg,CT_OS_MSG_BYTES));

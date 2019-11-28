@@ -37,19 +37,20 @@ void tzdz_ds18b20_init(void) {
 		initialized = 1;
 		ESP_LOGI(TAG,"DS18B20 sensor init done");
 	} else {
-		initialized = 0;
+		initialized = -1;
 		ESP_LOGW(TAG,"DS18B20 sensor not found");
 	}
 }
 
 void tzdz_ds18b20_start(void) {
-	if (!initialized)
-		return;
-	ds18b20_convert(device);
+	if (initialized == 0)
+		tzdz_ds18b20_init();
+	if (initialized == 1)
+		ds18b20_convert(device);
 }
 
 void tsdz_ds18b20_read(void) {
-	if (!initialized)
+	if (initialized != 1)
 		return;
 	float t;
 	DS18B20_ERROR error = ds18b20_read_temp(device, &t);

@@ -48,8 +48,9 @@
 #define ERROR_NO_SPEED_SENSOR_DETECTED            5  // currently not used
 #define ERROR_LOW_CONTROLLER_VOLTAGE              6  // controller works with no less than 15 V so give error code if voltage is too low
 #define ERROR_CADENCE_SENSOR_CALIBRATION          7
-#define ERROR_TEMPERATURE_LIMIT                   8
-#define ERROR_TEMPERATURE_MAX                     9
+#define ERROR_OVERVOLTAGE                         8
+#define ERROR_TEMPERATURE_LIMIT                   9
+#define ERROR_TEMPERATURE_MAX                     10
 
 #define WALK_ASSIST_THRESHOLD_SPEED_X10 		80 // 8.0 Km/h
 #define CRUISE_THRESHOLD_SPEED_X10 				90 // 9.0 Km/h
@@ -71,7 +72,8 @@
 #define OEM_ERROR_OVERVOLTAGE					8 // E08
 
 
-#define UNDERVOLTAGE				1
+#define BATTERY_OVERVOLTAGE				1
+#define BATTERY_UNDERVOLTAGE			2
 
 
 #pragma pack(1)
@@ -142,6 +144,15 @@ typedef struct _tsdz_debug
 	volatile uint16_t ui16_cadence_sensor_pulse_high_percentage_x10;
 } struct_tsdz_debug;
 
+#define SET_BRAKE_ON (tsdz_status.ui8_flags |= 0x01)
+#define SET_BRAKE_OFF (tsdz_status.ui8_flags &= 0xFE)
+#define IS_BRAKE_ON (tsdz_status.ui8_flags & 0x01)
+#define SET_STREETMODE_ON (tsdz_status.ui8_flags |= 0x02)
+#define SET_STREETMODE_OFF (tsdz_status.ui8_flags &= 0xFD)
+#define IS_STREETMODE_ON ((tsdz_status.ui8_flags & 0x02) >> 1)
+#define SET_LIGHT_ON (tsdz_status.ui8_flags |= 0x04)
+#define SET_LIGHT_OFF (tsdz_status.ui8_flags &= 0xFB)
+#define IS_LIGHT_ON ((tsdz_status.ui8_flags & 0x04) >> 2)
 
 extern const struct_tsdz_cfg	tsdz_default_cfg;
 extern struct_tsdz_cfg			tsdz_cfg;
@@ -156,7 +167,7 @@ void tsdz_data_update();
 void processLcdMessage(const uint8_t lcd_oem_message[]);
 void getLCDMessage(uint8_t ct_oem_message[]);
 void processControllerMessage(const uint8_t ct_os_message[]);
-bool getControllerMessage(uint8_t lcd_os_message[]);
+void getControllerMessage(uint8_t lcd_os_message[]);
 int tsdz_update_cfg(struct_tsdz_cfg *new_cfg);
 
 #endif /* MAIN_TSDZ_DATA_H_ */
