@@ -36,8 +36,8 @@ void app_main(void)
 	tsdz_bt_init();
 	ESP_LOGI(APP_MAIN, "bt init done");
 
-	// wait 1 sec to avoid STM8 bootloader activation
-	vTaskDelay(pdMS_TO_TICKS(500));
+	// wait to avoid STM8 bootloader activation
+	vTaskDelay(pdMS_TO_TICKS(600));
 
 	tsdz_uart_init();
 	ESP_LOGI(APP_MAIN, "uart init done");

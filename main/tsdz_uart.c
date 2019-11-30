@@ -90,13 +90,15 @@ void tsdz_uart_init(void) {
 	}
 }
 
+// the OEM LCD sends about 13 msg/sec but the messages to the controller
+// are sent at a frequency of 10 msg/sec like the official LCD3
 void tsdz_uart_task(void) {
+	static bool lcdMsgReceived = false;
+
 	// Read messages coming from LCD
 	if (lcdMessageReceived()) {
 		processLcdMessage(lcd_recived_msg);
-		getControllerMessage(ct_send_msg);
-		uart_write_bytes(CT_UART, (char*)ct_send_msg, (size_t)LCD_OS_MSG_BYTES);
-		ESP_LOGI(TAG, "Controller Message Sent: %s", bytesToHex(ct_send_msg,LCD_OS_MSG_BYTES));
+		lcdMsgReceived = true;
 	}
 
 	// Read messages from Controller and send to LCD and controller
@@ -104,7 +106,13 @@ void tsdz_uart_task(void) {
 		processControllerMessage(ct_received_msg);
 		getLCDMessage(lcd_send_msg);
 		uart_write_bytes(LCD_UART, (char*)lcd_send_msg, (size_t)CT_OEM_MSG_BYTES);
-		ESP_LOGI(TAG, "LCD Message Sent: %s", bytesToHex(lcd_send_msg,CT_OEM_MSG_BYTES));
+		//ESP_LOGI(TAG, "LCD Message Sent: %s", bytesToHex(lcd_send_msg,CT_OEM_MSG_BYTES));
+		if (lcdMsgReceived) {
+			getControllerMessage(ct_send_msg);
+			uart_write_bytes(CT_UART, (char*)ct_send_msg, (size_t)LCD_OS_MSG_BYTES);
+			lcdMsgReceived = false;
+			//ESP_LOGI(TAG, "Controller Message Sent: %s", bytesToHex(ct_send_msg,LCD_OS_MSG_BYTES));
+		}
 	}
 }
 
@@ -137,15 +145,15 @@ bool lcdMessageReceived(void) {
 					lcd_state_machine = 0;
 					lcd_rx_counter = 0;
 					if (checkCRC(lcd_recived_msg, LCD_OEM_MSG_BYTES)) {
-						//ESP_LOGI(TAG, "lcdMessageReceived: %s", bytesToHex(lcd_recived_msg,LCD_OEM_MSG_BYTES));
-						ESP_LOGI(TAG, "LCD Message Received");
+						ESP_LOGI(TAG, "lcdMessageReceived: %s", bytesToHex(lcd_recived_msg,LCD_OEM_MSG_BYTES));
+						//ESP_LOGI(TAG, "LCD Message Received");
 						return true;
 					} else
+						ESP_LOGI(TAG, "lcdMessageReceived: %s", bytesToHex(lcd_recived_msg,LCD_OEM_MSG_BYTES));
 						ESP_LOGE(TAG,"LCD-CRC-ERROR");
 				}
 				break;
 			}
-		// uart_get_buffered_data_len(UART_NUM_0, &available);
 		uart_get_buffered_data_len(LCD_UART, &available);
 	}
 	return false;
@@ -163,8 +171,6 @@ bool ctMessageReceived(void) {
 			switch (ct_state_machine) {
 			case 0:
 				if (byte_received != CT_MSG_ID) {// see if we get start package byte
-					//fputc(byte_received, stdout);
-					//printf(bytesToHex(&byte_received,1));
 					break;
 				}
 				ct_rx_counter = 1;
@@ -186,11 +192,6 @@ bool ctMessageReceived(void) {
 						return true;
 					} else
 						ESP_LOGE(TAG,"CONTROLLER-CRC-ERROR %s", bytesToHex(ct_received_msg,CT_OS_MSG_BYTES));
-					/*
-				      for (int i=0; i<CT_OS_MSG_BYTES; i++)
-				    	  fputc(ct_received_msg[i], stdout);
-				      printf("\n");
-					 */
 				}
 				break;
 			}

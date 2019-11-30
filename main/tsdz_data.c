@@ -179,8 +179,11 @@ void processLcdMessage(const uint8_t lcd_oem_message[]) {
 	ui8_oem_lights = lcd_oem_message[1] & 0x01;
 
 	// max speed
+	// VLCD5:
+	// 25Km/h ON : sends 26 Km/h
+	// 25Km/h OFF : sends 45 Km/h
 	ui8_oem_wheel_max_speed = lcd_oem_message[5];
-	if (ui8_oem_wheel_max_speed > 25)
+	if (ui8_oem_wheel_max_speed > 26)
 		tsdz_status.ui8_street_mode_enabled = 0;
 	else
 		tsdz_status.ui8_street_mode_enabled = 1;
@@ -538,7 +541,14 @@ void update_energy(void)
 
 
 void update_battery() {
+	if (tsdz_status.ui16_battery_voltage_x1000 == 0) {
+		ui8_BatteryLevel = 0;
+		ui8_BatteryError = BATTERY_UNDERVOLTAGE;
+		return;
+	}
+
 	uint16_t ui16_cell_voltage_x100 = (tsdz_status.ui16_battery_voltage_x1000 / 10 / (uint16_t)tsdz_cfg.ui8_battery_cells_number)-200;
+
 	ui8_BatteryError = NO_ERROR;
 	if (ui16_cell_voltage_x100 >= tsdz_cfg.ui8_li_io_cell_overvolt_x100) {
 		// level full + overvoltage
