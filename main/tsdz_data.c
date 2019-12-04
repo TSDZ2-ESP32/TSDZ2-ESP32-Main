@@ -541,7 +541,7 @@ void update_energy(void)
 
 
 void update_battery() {
-	if (tsdz_status.ui16_battery_voltage_x1000 == 0) {
+	if ((tsdz_status.ui16_battery_voltage_x1000 / 10 / (uint16_t)tsdz_cfg.ui8_battery_cells_number) <= 200) {
 		ui8_BatteryLevel = 0;
 		ui8_BatteryError = BATTERY_UNDERVOLTAGE;
 		return;
@@ -561,14 +561,14 @@ void update_battery() {
 		// level 0 (1 bar blinking)
 		ui8_BatteryError = BATTERY_UNDERVOLTAGE; // battery undervoltage
 		ui8_BatteryLevel = 0x00;
-	} else if (ui16_cell_voltage_x100 <= tsdz_cfg.ui8_li_io_cell_one_bar_x100) {
+	} else if (ui16_cell_voltage_x100 < tsdz_cfg.ui8_li_io_cell_one_bar_x100) {
 		// level 1
-		ui8_BatteryLevel = 0x01;
+		ui8_BatteryLevel = 0x00;
 	} else {
 		ui8_BatteryLevel = map(ui16_cell_voltage_x100,
 				tsdz_cfg.ui8_li_io_cell_one_bar_x100,
 				tsdz_cfg.ui8_li_io_cell_full_bars_x100,
-				2,
-				11);
+				1,
+				12);
 	}
 }
