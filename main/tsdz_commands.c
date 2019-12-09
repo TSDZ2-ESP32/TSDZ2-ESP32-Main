@@ -23,26 +23,65 @@ static int command_ota(uint8_t* value, uint16_t len, uint8_t cmdType);
 static int get_app_version(void);
 static int command_stm8_ota_status(void);
 static int command_cadence_calib(uint8_t* value, uint16_t len);
+static int command_esp32_cfg(uint8_t* value, uint16_t len);
 
 int exec_command(uint8_t* value, uint16_t len) {
 	switch (value[0]) {
-	case CMD_GET_APP_VERSION:
-		return get_app_version();
-	case CMD_ESP_OTA:
-		return command_ota(&value[1], len-1, CMD_ESP_OTA);
-	case CMD_LOADER_OTA:
-		return command_ota(&value[1], len-1, CMD_LOADER_OTA);
-	case CMD_STM8S_OTA:
-		return command_ota(&value[1], len-1, CMD_STM8S_OTA);
-	case CMD_STM8_OTA_STATUS:
-		return command_stm8_ota_status();
-	case CMD_CADENCE_CALIBRATION:
-		return command_cadence_calib(&value[1], len-1);
+		case CMD_GET_APP_VERSION:
+			return get_app_version();
+		case CMD_ESP_OTA:
+			return command_ota(&value[1], len-1, CMD_ESP_OTA);
+		case CMD_LOADER_OTA:
+			return command_ota(&value[1], len-1, CMD_LOADER_OTA);
+		case CMD_STM8S_OTA:
+			return command_ota(&value[1], len-1, CMD_STM8S_OTA);
+		case CMD_STM8_OTA_STATUS:
+			return command_stm8_ota_status();
+		case CMD_CADENCE_CALIBRATION:
+			return command_cadence_calib(&value[1], len-1);
+		case CMD_ESP32_CFG:
+			return command_esp32_cfg(&value[1], len-1);
 	}
 	uint8_t ret_val[2] = {value[0], 0xff};
 	tsdz_bt_notify_command(ret_val, 2);
 	return 1;
 }
+
+static int command_esp32_cfg(uint8_t* value, uint16_t len) {
+	if (value[0] == SET) {
+		uint8_t ret_val[3] = {CMD_ESP32_CFG,SET,0};
+
+		if (value[1] < MIN_BT_UPDTAE_DELAY || value[1] > MAX_BT_UPDATE_DELAY)
+			esp32_cfg.bt_update_delay = DEFAULT_BT_UPDATE_DELAY;
+		else
+			esp32_cfg.bt_update_delay = value[1];
+		if (value[2] < MIN_DS18B20_PIN || value[2] > MAX_DS18B20_PIN)
+			esp32_cfg.ds18b20_pin = DEFAULT_DS18B20_PIN;
+		else
+			esp32_cfg.ds18b20_pin = value[2];
+
+		if (value[3] != 0)
+			esp32_cfg.alternate_lcd_pin = 1;
+		else
+			esp32_cfg.alternate_lcd_pin = 0;
+
+		tsdz_update_esp32_cfg();
+		tsdz_bt_notify_command(ret_val, 3);
+		return 0;
+	} else if (value[0] == GET) {
+		uint8_t ret_val[6] = {CMD_ESP32_CFG,GET,0,0,0,0};
+		ret_val[3] = esp32_cfg.bt_update_delay;
+		ret_val[4] = esp32_cfg.ds18b20_pin;
+		ret_val[5] = esp32_cfg.alternate_lcd_pin;
+		tsdz_bt_notify_command(ret_val, 6);
+		return 0;
+	} else {
+		uint8_t ret_val[2] = {CMD_ESP32_CFG, 0xff};
+		tsdz_bt_notify_command(ret_val, 2);
+		return 1;
+	}
+}
+
 
 static int command_cadence_calib(uint8_t* value, uint16_t len) {
 	uint8_t ret_val[3] = {CMD_CADENCE_CALIBRATION,value[0],0};

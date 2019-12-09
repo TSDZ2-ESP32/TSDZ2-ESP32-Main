@@ -172,72 +172,96 @@ static const uint8_t char_prop_write_notify        = ESP_GATT_CHAR_PROP_BIT_WRIT
 //static const uint8_t char_prop_read_notify         = ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY;
 static const uint8_t char_prop_notify              = ESP_GATT_CHAR_PROP_BIT_NOTIFY;
 static const uint8_t char_prop_read_write          = ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_READ;
-static const uint8_t tsdz_cfg_ccc[2]               = {0x00, 0x01};
-//static const uint8_t char_value[4]                 = {0x11, 0x22, 0x33, 0x44};
+
+static const uint8_t tsdz_attr_ccc[2] = {0x00, 0x00};
+
+
 
 
 /* Full Database Description - Used to add attributes into the database */
-static const esp_gatts_attr_db_t gatt_db[HRS_IDX_NB] =
-{
-		// Service Declaration
-		[IDX_SVC]        =
-		{{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&primary_service_uuid, ESP_GATT_PERM_READ,
-				sizeof(uint16_t), sizeof(GATTS_SERVICE_UUID_TSDZ), (uint8_t *)&GATTS_SERVICE_UUID_TSDZ}},
+static const esp_gatts_attr_db_t gatt_db[HRS_IDX_NB] = {
+// Service Declaration
+		[IDX_SVC] =
+		{ { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+				(uint8_t *) &primary_service_uuid, ESP_GATT_PERM_READ,
+				sizeof(uint16_t), sizeof(GATTS_SERVICE_UUID_TSDZ),
+				(uint8_t *) &GATTS_SERVICE_UUID_TSDZ } },
 
-				// Characteristic Declaration
-				[IDX_CHAR_STATUS]     =
-				{{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ,
-						CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_notify}},
+		// Characteristic Declaration
+		[IDX_CHAR_STATUS] =
+		{ { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+				(uint8_t *) &character_declaration_uuid, ESP_GATT_PERM_READ,
+				CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE,
+				(uint8_t *) &char_prop_notify } },
 
-						// Characteristic Value
-						[IDX_CHAR_VAL_STATUS] =
-						{{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&GATTS_CHAR_UUID_TSDZ_STATUS, ESP_GATT_PERM_READ,
-								sizeof(tsdz_status), sizeof(tsdz_status), (uint8_t *)(&tsdz_status)}},
+		// Characteristic Value
+		[IDX_CHAR_VAL_STATUS] =
+		{ { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+				(uint8_t *) &GATTS_CHAR_UUID_TSDZ_STATUS, ESP_GATT_PERM_READ,
+				sizeof(tsdz_status), sizeof(tsdz_status),
+				(uint8_t *) (&tsdz_status) } },
 
-								// Client Characteristic Configuration Descriptor
-								[IDX_CHAR_CFG_STATUS]  =
-								{{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
-										sizeof(uint16_t), sizeof(tsdz_cfg_ccc), (uint8_t *)tsdz_cfg_ccc}},
+		// Client Characteristic Configuration Descriptor
+		[IDX_CHAR_CFG_STATUS] =
+		{ { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+				(uint8_t *) &character_client_config_uuid, ESP_GATT_PERM_READ
+						| ESP_GATT_PERM_WRITE, sizeof(uint16_t),
+				sizeof(tsdz_attr_ccc), (uint8_t *) tsdz_attr_ccc } },
 
-										// Characteristic Declaration
-										[IDX_CHAR_DEBUG]      =
-										{{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ,
-												CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_notify}},
+		// Characteristic Declaration
+		[IDX_CHAR_DEBUG] =
+		{ { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+				(uint8_t *) &character_declaration_uuid, ESP_GATT_PERM_READ,
+				CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE,
+				(uint8_t *) &char_prop_notify } },
 
-												// Characteristic Value
-												[IDX_CHAR_VAL_DEBUG]  =
-												{{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&GATTS_CHAR_UUID_TSDZ_DEBUG, ESP_GATT_PERM_READ,
-														sizeof(tsdz_debug), sizeof(tsdz_debug), (uint8_t *)(&tsdz_debug)}},
+		// Characteristic Value
+		[IDX_CHAR_VAL_DEBUG] =
+		{ { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+				(uint8_t *) &GATTS_CHAR_UUID_TSDZ_DEBUG, ESP_GATT_PERM_READ,
+				sizeof(tsdz_debug), sizeof(tsdz_debug),
+				(uint8_t *) (&tsdz_debug) } },
 
-														// Client Characteristic Configuration Descriptor
-														[IDX_CHAR_CFG_DEBUG]  =
-														{{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
-																sizeof(uint16_t), sizeof(tsdz_cfg_ccc), (uint8_t *)tsdz_cfg_ccc}},
+		// Client Characteristic Configuration Descriptor
+		[IDX_CHAR_CFG_DEBUG] =
+		{ { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+				(uint8_t *) &character_client_config_uuid, ESP_GATT_PERM_READ
+						| ESP_GATT_PERM_WRITE, sizeof(uint16_t),
+				sizeof(tsdz_attr_ccc), (uint8_t *) tsdz_attr_ccc } },
 
-																// Characteristic Declaration
-																[IDX_CHAR_CONFIG]      =
-																{{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ,
-																		CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_read_write}},
+		// Characteristic Declaration
+		[IDX_CHAR_CONFIG] =
+		{ { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+				(uint8_t *) &character_declaration_uuid, ESP_GATT_PERM_READ,
+				CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE,
+				(uint8_t *) &char_prop_read_write } },
 
-																		// Characteristic Value
-																		[IDX_CHAR_VAL_CONFIG]  =
-																		{{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&GATTS_CHAR_UUID_TSDZ_CFG, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
-																				sizeof(tsdz_cfg), sizeof(tsdz_cfg), (uint8_t *)(&tsdz_cfg)}},
+		// Characteristic Value
+		[IDX_CHAR_VAL_CONFIG] =
+		{ { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+				(uint8_t *) &GATTS_CHAR_UUID_TSDZ_CFG, ESP_GATT_PERM_READ
+						| ESP_GATT_PERM_WRITE, sizeof(tsdz_cfg),
+				sizeof(tsdz_cfg), (uint8_t *) (&tsdz_cfg) } },
 
-																				// Characteristic Declaration
-																				[IDX_CHAR_COMMAND]      =
-																				{{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ,
-																						CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_write_notify}},
+		// Characteristic Declaration
+		[IDX_CHAR_COMMAND] =
+		{ { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+				(uint8_t *) &character_declaration_uuid, ESP_GATT_PERM_READ,
+				CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE,
+				(uint8_t *) &char_prop_write_notify } },
 
-																						// Characteristic Value
-																						[IDX_CHAR_VAL_COMMAND]  =
-																						{{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&GATTS_CHAR_UUID_TSDZ_COMMAND, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
-																								128, 2, (uint8_t *)"A"}},
+		// Characteristic Value
+		[IDX_CHAR_VAL_COMMAND] =
+		{ { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+				(uint8_t *) &GATTS_CHAR_UUID_TSDZ_COMMAND, ESP_GATT_PERM_READ
+						| ESP_GATT_PERM_WRITE, 128, 2, (uint8_t *) "A" } },
 
-																								// Client Characteristic Configuration Descriptor
-																								[IDX_CHAR_CFG_COMMAND]  =
-																								{{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
-																										sizeof(uint16_t), sizeof(tsdz_cfg_ccc), (uint8_t *)tsdz_cfg_ccc}},
+		// Client Characteristic Configuration Descriptor
+		[IDX_CHAR_CFG_COMMAND] =
+		{ { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+				(uint8_t *) &character_client_config_uuid, ESP_GATT_PERM_READ
+						| ESP_GATT_PERM_WRITE, sizeof(uint16_t),
+				sizeof(tsdz_attr_ccc), (uint8_t *) tsdz_attr_ccc } },
 };
 
 static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
@@ -317,15 +341,31 @@ esp_gatt_status_t handle_write_value(uint16_t handle, uint8_t *value, uint16_t l
 			return ESP_GATT_INVALID_PDU;
 		} else
 			return ESP_GATT_OK;
-	} else if ((tsdz_handle_table[IDX_CHAR_CFG_STATUS] == handle) ||
-			(tsdz_handle_table[IDX_CHAR_CFG_DEBUG] == handle) ||
-			(tsdz_handle_table[IDX_CHAR_CFG_COMMAND] == handle)) {
+	} else if (tsdz_handle_table[IDX_CHAR_CFG_STATUS] == handle) {
 		if (value[0] == 0x01){
-			ESP_LOGI(TAG, "notify enable");
+			ESP_LOGI(TAG, "IDX_CHAR_CFG_STATUS notify enable");
 		} else if (value[0] == 0x00){
-			ESP_LOGI(TAG, "notify disable ");
+			ESP_LOGI(TAG, "IDX_CHAR_CFG_STATUS notify disable ");
 		} else{
-			ESP_LOGE(TAG, "unknown descr value");
+			ESP_LOGE(TAG, "IDX_CHAR_CFG_STATUS unknown descr value");
+		}
+		return ESP_GATT_OK;
+	} else if (tsdz_handle_table[IDX_CHAR_CFG_DEBUG] == handle) {
+		if (value[0] == 0x01){
+			ESP_LOGI(TAG, "IDX_CHAR_CFG_DEBUG notify enable");
+		} else if (value[0] == 0x00){
+			ESP_LOGI(TAG, "IDX_CHAR_CFG_DEBUG notify disable ");
+		} else{
+			ESP_LOGE(TAG, "IDX_CHAR_CFG_DEBUG unknown descr value");
+		}
+		return ESP_GATT_OK;
+	} else if (tsdz_handle_table[IDX_CHAR_CFG_COMMAND] == handle) {
+		if (value[0] == 0x01){
+			ESP_LOGI(TAG, "IDX_CHAR_CFG_COMMAND notify enable");
+		} else if (value[0] == 0x00){
+			ESP_LOGI(TAG, "IDX_CHAR_CFG_COMMAND notify disable ");
+		} else{
+			ESP_LOGE(TAG, "IDX_CHAR_CFG_COMMAND unknown descr value");
 		}
 		return ESP_GATT_OK;
 	} else {
@@ -641,29 +681,46 @@ void tsdz_bt_stop(void)
 }
 
 void tsdz_bt_update(void) {
-	esp_err_t set_attr_ret = esp_ble_gatts_set_attr_value(tsdz_handle_table[IDX_CHAR_VAL_CONFIG], sizeof(tsdz_cfg), (uint8_t*)(&tsdz_cfg));
+	esp_err_t set_attr_ret = ESP_OK;
+	set_attr_ret = esp_ble_gatts_set_attr_value(tsdz_handle_table[IDX_CHAR_VAL_CONFIG], sizeof(tsdz_cfg), (uint8_t*)(&tsdz_cfg));
 	set_attr_ret |= esp_ble_gatts_set_attr_value(tsdz_handle_table[IDX_CHAR_VAL_STATUS], sizeof(tsdz_status), (uint8_t*)(&tsdz_status));
 	set_attr_ret |= esp_ble_gatts_set_attr_value(tsdz_handle_table[IDX_CHAR_VAL_DEBUG], sizeof(tsdz_debug), (uint8_t *)(&tsdz_debug));
 	if (set_attr_ret){
 		ESP_LOGE(TAG, "tsdz_bt_update, set attr failed, error code = %x", set_attr_ret);
 	}
 	if (conn_id != 0xffff) {
-		set_attr_ret = esp_ble_gatts_send_indicate(tsdz_cfg_profile_tab[PROFILE_APP_IDX].gatts_if, conn_id, tsdz_handle_table[IDX_CHAR_VAL_STATUS],
-				sizeof(tsdz_status), (uint8_t *)(&tsdz_status), false);
-		set_attr_ret |= esp_ble_gatts_send_indicate(tsdz_cfg_profile_tab[PROFILE_APP_IDX].gatts_if, conn_id, tsdz_handle_table[IDX_CHAR_VAL_DEBUG],
+		// Client Charactersitic Configuration bit 0 set -> Notification enabled
+		uint16_t l;
+		const uint8_t* value;
+		esp_err_t ret = esp_ble_gatts_get_attr_value(tsdz_handle_table[IDX_CHAR_CFG_STATUS], &l, &value);
+		if (ret==ESP_OK  && l==2 && (value[0]&0x01))
+			ret = esp_ble_gatts_send_indicate(tsdz_cfg_profile_tab[PROFILE_APP_IDX].gatts_if, conn_id, tsdz_handle_table[IDX_CHAR_VAL_STATUS],
+					sizeof(tsdz_status), (uint8_t *)(&tsdz_status), false);
+		if (ret){
+			ESP_LOGE(TAG, "tsdz_bt_update, tsdz_status notifiation failed, error code = %x", set_attr_ret);
+		}
+		ret = esp_ble_gatts_get_attr_value(tsdz_handle_table[IDX_CHAR_CFG_DEBUG], &l, &value);
+		if (ret==ESP_OK  && l==2 && (value[0]&0x01))
+			ret |= esp_ble_gatts_send_indicate(tsdz_cfg_profile_tab[PROFILE_APP_IDX].gatts_if, conn_id, tsdz_handle_table[IDX_CHAR_VAL_DEBUG],
 				sizeof(tsdz_debug), (uint8_t *)(&tsdz_debug), false);
-		if (set_attr_ret){
-			ESP_LOGE(TAG, "tsdz_bt_update, send indicate failed, error code = %x", set_attr_ret);
+		if (ret){
+			ESP_LOGE(TAG, "tsdz_bt_update, tsdz_debug notification failed, error code = %x", set_attr_ret);
 		}
 	}
 }
 
-void tsdz_bt_notify_command(uint8_t* value, uint8_t length) {
+void tsdz_bt_notify_command(uint8_t* data, uint8_t length) {
+	// Client Charactersitic Configuration bit 0 set -> Notification enabled
+
 	if (conn_id != 0xffff) {
-		esp_err_t ret = esp_ble_gatts_send_indicate(tsdz_cfg_profile_tab[PROFILE_APP_IDX].gatts_if, conn_id, tsdz_handle_table[IDX_CHAR_VAL_COMMAND],
-				length, value, false);
+		uint16_t l;
+		const uint8_t* value;
+		esp_err_t ret = esp_ble_gatts_get_attr_value(tsdz_handle_table[IDX_CHAR_CFG_COMMAND], &l, &value);
+		if (ret == ESP_OK  && l==2 && (value[0]&0x01))
+			ret = esp_ble_gatts_send_indicate(tsdz_cfg_profile_tab[PROFILE_APP_IDX].gatts_if, conn_id, tsdz_handle_table[IDX_CHAR_VAL_COMMAND],
+				length, data, false);
 		if (ret){
-			ESP_LOGE(TAG, "tsdz_bt_notify_command, send indicate failed, error code = %x", ret);
+			ESP_LOGE(TAG, "tsdz_bt_notify_command, notification failed, error code = %x", ret);
 		}
 	}
 }

@@ -14,6 +14,7 @@ void tsdz_nvs_read_cfg(void);
 void tsdz_nvs_update_cfg(void);
 
 void tsdz_nvs_update_whOffset(void);
+void tsdz_update_esp32_cfg(void);
 
 esp_err_t tsdz_nvs_write_stm8s_fw(char* data, uint16_t length);
 void tsdz_nvs_write_boot_partiton(uint8_t data);

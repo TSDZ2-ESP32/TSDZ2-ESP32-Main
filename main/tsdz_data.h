@@ -75,6 +75,20 @@
 #define BATTERY_OVERVOLTAGE				1
 #define BATTERY_UNDERVOLTAGE			2
 
+#define MIN_BT_UPDTAE_DELAY 			20 // 200 ms (5 notification/sec)
+#define MAX_BT_UPDATE_DELAY 			100 // 1000 ms (1 notification/sec)
+#define DEFAULT_BT_UPDATE_DELAY			25 // 250 ms (4 notification/sec)
+#define MIN_DS18B20_PIN		 			3
+#define MAX_DS18B20_PIN		 			31
+#define DEFAULT_DS18B20_PIN				25
+
+#pragma pack(1)
+typedef struct _esp32_cfg
+{
+	volatile uint8_t bt_update_delay;
+	volatile uint8_t ds18b20_pin;
+	volatile uint8_t alternate_lcd_pin;
+} struct_esp32_cfg;
 
 #pragma pack(1)
 typedef struct _tsdz_cfg
@@ -144,23 +158,15 @@ typedef struct _tsdz_debug
 	volatile uint16_t ui16_cadence_sensor_pulse_high_percentage_x10;
 } struct_tsdz_debug;
 
-#define SET_BRAKE_ON (tsdz_status.ui8_flags |= 0x01)
-#define SET_BRAKE_OFF (tsdz_status.ui8_flags &= 0xFE)
-#define IS_BRAKE_ON (tsdz_status.ui8_flags & 0x01)
-#define SET_STREETMODE_ON (tsdz_status.ui8_flags |= 0x02)
-#define SET_STREETMODE_OFF (tsdz_status.ui8_flags &= 0xFD)
-#define IS_STREETMODE_ON ((tsdz_status.ui8_flags & 0x02) >> 1)
-#define SET_LIGHT_ON (tsdz_status.ui8_flags |= 0x04)
-#define SET_LIGHT_OFF (tsdz_status.ui8_flags &= 0xFB)
-#define IS_LIGHT_ON ((tsdz_status.ui8_flags & 0x04) >> 2)
 
-extern const struct_tsdz_cfg	tsdz_default_cfg;
+extern struct_esp32_cfg 		esp32_cfg;
+extern const struct_tsdz_cfg			tsdz_default_cfg;
 extern struct_tsdz_cfg			tsdz_cfg;
 extern struct_tsdz_status		tsdz_status;
 extern struct_tsdz_debug		tsdz_debug;
-extern uint32_t 				ui32_wh_x10_offset;
-extern uint32_t					ui32_wh_x10;
-extern volatile uint8_t			ui8_cadence_sensor_calibration;
+extern uint32_t 						ui32_wh_x10_offset;
+extern uint32_t							ui32_wh_x10;
+extern volatile uint8_t					ui8_cadence_sensor_calibration;
 
 
 void tsdz_data_update();

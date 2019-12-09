@@ -16,6 +16,12 @@
 
 #define TAG "tsdz_data"
 
+struct_esp32_cfg esp32_cfg = {
+	.bt_update_delay = DEFAULT_BT_UPDATE_DELAY, //
+	.ds18b20_pin = DEFAULT_DS18B20_PIN,
+	.alternate_lcd_pin = 0
+};
+
 struct_tsdz_status tsdz_status = {
 	.ui8_riding_mode = OFF_MODE,
 	.ui8_assist_level = 0,

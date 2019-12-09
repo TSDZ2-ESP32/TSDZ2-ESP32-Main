@@ -18,13 +18,13 @@
 
 static const uint8_t NVS_KEY_VAL = 0x07;
 
-static const char* NVS_KEY = "key";
-static const char* CFG_KEY ="cfg";
-static const char* WH_OFFST_KEY	= "wh_offset";
+static const char* NVS_KEY = "KEY";
+static const char* TSDZ_CFG_KEY ="TSDZ_CFG";
+static const char* WH_OFFST_KEY	= "WH_OFFSET";
 static const char* STM8_FW = "STM8FW";
 static const char* BOOT_PARTITION = "BOOT";
-static const char* OTA_RESULT = "RESULT";
-
+static const char* OTA_RESULT = "OTA_RESULT";
+static const char* ESP32_CFG_KEY = "ESP32_CFG";
 
 
 void tsdz_nvs_write_default_cfg(void);
@@ -57,10 +57,10 @@ void tsdz_nvs_read_cfg(void) {
 	}
 	ESP_LOGI(TAG,"NVS KEY = %x", key);
 
-	size_t len;
-	err = nvs_get_blob(my_handle, CFG_KEY, &tsdz_cfg, &len);
+	size_t len = sizeof(tsdz_cfg);
+	err = nvs_get_blob(my_handle, TSDZ_CFG_KEY, &tsdz_cfg, &len);
 	if ((err != ESP_OK) || (len != sizeof(tsdz_cfg))) {
-		ESP_LOGE(TAG, "FATAL ERROR: Unable to read Configuration from nvs");
+		ESP_LOGE(TAG, "FATAL ERROR: Unable to read TSDZ Configuration from nvs");
 		tsdz_cfg = tsdz_default_cfg;
 	}
 	err = nvs_get_u32(my_handle, WH_OFFST_KEY, &ui32_wh_x10_offset);
@@ -68,10 +68,15 @@ void tsdz_nvs_read_cfg(void) {
 		ESP_LOGE(TAG, "FATAL ERROR: Unable to read Wh offset from nvs");
 		ui32_wh_x10_offset = 0;
 	}
+	len = sizeof(esp32_cfg);
+	err = nvs_get_blob(my_handle, ESP32_CFG_KEY, &esp32_cfg, &len);
+	if (err != ESP_OK) {
+		ESP_LOGE(TAG, "FATAL ERROR: Unable to read ESP32 Configuration from nvs: %d", err);
+	}
 }
 
 void tsdz_nvs_update_cfg(void) {
-	esp_err_t err = nvs_set_blob(my_handle, CFG_KEY, &tsdz_cfg, sizeof(tsdz_cfg));
+	esp_err_t err = nvs_set_blob(my_handle, TSDZ_CFG_KEY, &tsdz_cfg, sizeof(tsdz_cfg));
 	if(err != ESP_OK)
 		ESP_LOGE(TAG, "FATAL ERROR: Unable to write Configuration to nvs");
 	err = nvs_commit(my_handle);
@@ -87,7 +92,7 @@ void tsdz_nvs_write_default_cfg(void) {
 	err = nvs_set_u8(my_handle, NVS_KEY, NVS_KEY_VAL);
 	if(err != ESP_OK)
 		ESP_LOGE(TAG, "FATAL ERROR: Unable to write nvs key: %d", err);
-	err = nvs_set_blob(my_handle, CFG_KEY, &tsdz_default_cfg, sizeof(tsdz_default_cfg));
+	err = nvs_set_blob(my_handle, TSDZ_CFG_KEY, &tsdz_default_cfg, sizeof(tsdz_default_cfg));
 	err |= nvs_set_u32 (my_handle, WH_OFFST_KEY, 0);
 	if(err != ESP_OK)
 		ESP_LOGE(TAG, "FATAL ERROR: Unable to write default configuration: %d", err);
@@ -100,6 +105,16 @@ void tsdz_nvs_update_whOffset(void) {
 	esp_err_t err = nvs_set_u32 (my_handle, WH_OFFST_KEY, ui32_wh_x10);
 	if(err != ESP_OK)
 		ESP_LOGE(TAG, "FATAL ERROR: Unable to write uint32 to nvs");
+	err = nvs_commit(my_handle);
+	if (err != ESP_OK)
+		ESP_LOGE(TAG, "FATAL ERROR: Unable to commit nvs");
+}
+
+void tsdz_update_esp32_cfg() {
+	ESP_LOGI(TAG, "tsdz_update_esp32_cfg");
+	esp_err_t err = nvs_set_blob(my_handle, ESP32_CFG_KEY, &esp32_cfg, sizeof(esp32_cfg));
+	if(err != ESP_OK)
+		ESP_LOGE(TAG, "FATAL ERROR: Unable to write ESP32 Configuration to nvs");
 	err = nvs_commit(my_handle);
 	if (err != ESP_OK)
 		ESP_LOGE(TAG, "FATAL ERROR: Unable to commit nvs");

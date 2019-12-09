@@ -73,7 +73,7 @@ void mainTask(void * pvParameters)
 		tsdz_uart_task();
 
 		// run every 250ms (25 * 10ms)
-		if (++bt_task_count >= 25) {
+		if (++bt_task_count >= (esp32_cfg.bt_update_delay)) {
 			tsdz_bt_update();
 			bt_task_count = 0;
 		}

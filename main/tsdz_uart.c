@@ -67,7 +67,10 @@ void tsdz_uart_init(void) {
 	if (err != ESP_OK) {
 		ESP_LOGE(TAG, "uart_param_config LCD_UART error=%d", err);
 	}
-	err = uart_set_pin(LCD_UART, LCD_TX_PIN, LCD_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+	if (esp32_cfg.alternate_lcd_pin)
+		err = uart_set_pin(LCD_UART, LCD_TX_ALT_PIN, LCD_RX_ALT_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+	else
+		err = uart_set_pin(LCD_UART, LCD_TX_PIN, LCD_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 	if (err != ESP_OK) {
 		ESP_LOGE(TAG, "uart_set_pin LCD_UART error=%d", err);
 	}

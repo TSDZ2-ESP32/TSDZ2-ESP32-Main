@@ -24,7 +24,7 @@ static DS18B20_Info * device = 0;
 
 void tzdz_ds18b20_init(void) {
 	// Create a 1-Wire bus, using the RMT timeslot driver
-	owb = owb_rmt_initialize(&rmt_driver_info, GPIO_DS18B20_0, RMT_CHANNEL_1, RMT_CHANNEL_0);
+	owb = owb_rmt_initialize(&rmt_driver_info, esp32_cfg.ds18b20_pin, RMT_CHANNEL_1, RMT_CHANNEL_0);
 	owb_use_crc(owb, true);  // enable CRC check for ROM code
 
 	// Create DS18B20 devices on the 1-Wire bus
@@ -35,10 +35,10 @@ void tzdz_ds18b20_init(void) {
 
 	if (result && device->init) {
 		initialized = 1;
-		ESP_LOGI(TAG,"DS18B20 sensor init done");
+		ESP_LOGI(TAG,"DS18B20 sensor init on pin %d done", esp32_cfg.ds18b20_pin);
 	} else {
 		initialized = -1;
-		ESP_LOGW(TAG,"DS18B20 sensor not found");
+		ESP_LOGW(TAG,"DS18B20 sensor on pin %d not found", esp32_cfg.ds18b20_pin);
 	}
 }
 
