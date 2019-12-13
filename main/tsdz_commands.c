@@ -132,6 +132,9 @@ static int command_stm8_ota_status(void) {
 }
 
 static int get_app_version(void) {
+	// Confirm partition is valid in case of OTA Update
+	ota_confirm_partition();
+
 	char ret[66];
 	int len;
 	ret[0] = CMD_GET_APP_VERSION;

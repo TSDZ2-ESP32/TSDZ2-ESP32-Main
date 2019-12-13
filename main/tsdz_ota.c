@@ -401,3 +401,17 @@ uint8_t ota_start(uint8_t* data, uint16_t len, uint8_t what) {
 	xTaskCreate(ota_task, "ota_task", 3072, NULL, 5, NULL);
 	return 0;
 }
+
+// Called form the BT get_app_version command.
+// This method confirm the partition as valid after an OTA update.
+// N.B. After an OTA update, the Android app must call get_app_version command when the ESP32
+// reconnects after the reboot.
+// If during the first boot there are no get_app_version requests, the boot partition is
+// automatically restored to the previous partition at the next boot.
+void ota_confirm_partition() {
+	const esp_partition_t* p = esp_ota_get_running_partition();
+	esp_ota_img_states_t ota_state;
+	if (esp_ota_get_state_partition(p, &ota_state) == ESP_OK)
+		if (ota_state == ESP_OTA_IMG_PENDING_VERIFY)
+			esp_ota_mark_app_valid_cancel_rollback();
+}

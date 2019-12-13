@@ -15,5 +15,6 @@
 #define LOADER 2
 
 uint8_t ota_start(uint8_t* data, uint16_t len, uint8_t what);
+void ota_confirm_partition();
 
 #endif /* MAIN_TSDZ_OTA_H_ */

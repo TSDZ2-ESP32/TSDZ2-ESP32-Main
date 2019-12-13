@@ -13,6 +13,7 @@
 #include "esp_spi_flash.h"
 #include "esp_log.h"
 #include "sdkconfig.h"
+#include "esp_app_format.h"
 #include "tsdz_uart.h"
 #include "tsdz_nvs.h"
 #include "tsdz_bt.h"
@@ -22,6 +23,8 @@
 #include "tsdz_ds18b20.h"
 
 #define APP_MAIN "app_main"
+
+const __attribute__((section(".rodata_custom_desc"))) uint32_t bt_pin = CONFIG_BT_PIN;
 
 void mainTask(void * pvParameters);
 
@@ -41,8 +44,6 @@ void app_main(void)
 
 	tsdz_uart_init();
 	ESP_LOGI(APP_MAIN, "uart init done");
-
-	//tzdz_ds18b20_init();
 
 	xTaskCreate( mainTask, "main_task", 2048, NULL, 5, &mainTaskHandle );
 	if(mainTaskHandle == NULL)

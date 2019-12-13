@@ -1,0 +1,8 @@
+menu "ESP32_TSDZ Configuration"
+    config BT_PIN
+        int "BT pairing PIN (6 digits)"
+        range 0 999999
+        default 0
+        help
+            Enter the BT pairing PIN (6 digit)
+endmenu
