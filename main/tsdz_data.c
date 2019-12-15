@@ -92,7 +92,7 @@ static uint8_t ui8_oem_lights;
 static uint8_t ui8_oem_wheel_max_speed;
 
 // global system variables
-static uint16_t   	ui16_battery_power_filtered_x10 = 100;
+static uint16_t   	ui16_battery_power_filtered_x10 = 0;
 static uint32_t   	ui32_wh_sum_x10 = 0;
 uint32_t      		ui32_wh_x10 = 0;
 uint32_t      		ui32_wh_x10_offset = 0;

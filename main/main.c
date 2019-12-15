@@ -24,8 +24,6 @@
 
 #define APP_MAIN "app_main"
 
-const __attribute__((section(".rodata_custom_desc"))) uint32_t bt_pin = CONFIG_BT_PIN;
-
 void mainTask(void * pvParameters);
 
 TaskHandle_t mainTaskHandle = NULL;

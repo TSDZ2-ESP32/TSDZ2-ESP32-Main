@@ -71,7 +71,7 @@ void tsdz_nvs_read_cfg(void) {
 	len = sizeof(esp32_cfg);
 	err = nvs_get_blob(my_handle, ESP32_CFG_KEY, &esp32_cfg, &len);
 	if (err != ESP_OK) {
-		ESP_LOGE(TAG, "FATAL ERROR: Unable to read ESP32 Configuration from nvs: %d", err);
+		ESP_LOGE(TAG, "FATAL ERROR: Unable to read ESP32 Configuration from nvs: 0x%x", err);
 	}
 }
 
@@ -88,14 +88,14 @@ void tsdz_nvs_write_default_cfg(void) {
 	ESP_LOGI(TAG, "NEW NVS KEY !! - Reset to Default Configuration");
 	esp_err_t err = nvs_erase_all(my_handle);
 	if (err != ESP_OK)
-		ESP_LOGE(TAG, "FATAL ERROR: Unable to erase the nvs partition: %d", err);
+		ESP_LOGE(TAG, "FATAL ERROR: Unable to erase the nvs partition: 0x%x", err);
 	err = nvs_set_u8(my_handle, NVS_KEY, NVS_KEY_VAL);
 	if(err != ESP_OK)
-		ESP_LOGE(TAG, "FATAL ERROR: Unable to write nvs key: %d", err);
+		ESP_LOGE(TAG, "FATAL ERROR: Unable to write nvs key: 0x%x", err);
 	err = nvs_set_blob(my_handle, TSDZ_CFG_KEY, &tsdz_default_cfg, sizeof(tsdz_default_cfg));
 	err |= nvs_set_u32 (my_handle, WH_OFFST_KEY, 0);
 	if(err != ESP_OK)
-		ESP_LOGE(TAG, "FATAL ERROR: Unable to write default configuration: %d", err);
+		ESP_LOGE(TAG, "FATAL ERROR: Unable to write default configuration: 0x%x", err);
 	err = nvs_commit(my_handle);
 	if (err != ESP_OK)
 		ESP_LOGE(TAG, "FATAL ERROR: Unable to commit nvs: %d", err);
