@@ -16,6 +16,11 @@
 
 #define TAG "tsdz_data"
 
+// add "target_link_libraries(${COMPONENT_TARGET} "-u bt_passkey")"to CMakeLists.txt to ensure that the parameter
+// is located correctly after the header at the beginning of the bin app image file
+const __attribute__((section(".rodata_custom_desc"))) uint32_t bt_passkey = CONFIG_BT_PIN;
+
+
 struct_esp32_cfg esp32_cfg = {
 	.bt_update_delay = DEFAULT_BT_UPDATE_DELAY, //
 	.ds18b20_pin = DEFAULT_DS18B20_PIN,

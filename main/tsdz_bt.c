@@ -42,10 +42,6 @@ static const char *TAG = "tsdz_bt";
 #define ADV_CONFIG_FLAG             (1 << 0)
 #define SCAN_RSP_CONFIG_FLAG        (1 << 1)
 
-// add "target_link_libraries(${COMPONENT_TARGET} "-u bt_passkey")"to CMakeLists.txt to ensure that the parameter
-// is located correctly after the header at the beginning of the bin app image file
-const __attribute__((section(".rodata_custom_desc"))) uint32_t bt_passkey = CONFIG_BT_PIN;
-
 
 static uint8_t adv_config_done       = 0;
 static uint16_t conn_id 			 = 0xffff;
@@ -232,33 +228,6 @@ static char *esp_auth_req_to_str(esp_ble_auth_req_t auth_req)
    }
 
    return auth_str;
-}
-
-static void show_bonded_devices(void)
-{
-    int dev_num = esp_ble_get_bond_device_num();
-
-    esp_ble_bond_dev_t *dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * dev_num);
-    esp_ble_get_bond_device_list(&dev_num, dev_list);
-    ESP_LOGI(TAG, "Bonded devices list : %d", dev_num);
-    for (int i = 0; i < dev_num; i++) {
-        esp_log_buffer_hex(TAG, (void *)dev_list[i].bd_addr, sizeof(esp_bd_addr_t));
-    }
-
-    free(dev_list);
-}
-
-static void __attribute__((unused)) remove_all_bonded_devices(void)
-{
-    int dev_num = esp_ble_get_bond_device_num();
-
-    esp_ble_bond_dev_t *dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * dev_num);
-    esp_ble_get_bond_device_list(&dev_num, dev_list);
-    for (int i = 0; i < dev_num; i++) {
-        esp_ble_remove_bond_device(dev_list[i].bd_addr);
-    }
-
-    free(dev_list);
 }
 
 static void remove_bonded_devices_except(esp_bd_addr_t keep)
