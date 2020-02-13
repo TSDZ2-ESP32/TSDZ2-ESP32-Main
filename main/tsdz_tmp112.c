@@ -5,17 +5,12 @@
  *      Author: SO000228
  */
 
+#include "esp_log.h"
 #include "driver/i2c.h"
 #include "tsdz_tmp112.h"
 #include "tsdz_data.h"
 
 static const char *TAG = "tsdz_tmp112";
-
-// TMP112 Configuration data
-// Select configuration register(0x01)
-// Continous Conversion mode, 12-Bit Resolution, Fault Queue is 1(0x60) 0110 0000
-// Polarity low, Thermostat in Comparator mode, Disables Shutdown mode(0xA0) 1010 0000
-static const char config[3] = {0x01,0x60,0xA0};
 
 static uint8_t initialized = 0;
 static i2c_config_t conf;
@@ -34,6 +29,12 @@ void tsdz_tmp112_init(void) {
 		ESP_LOGW(TAG,"I2C drive installation error: %d", err);
 		return;
 	}
+
+	// TMP112 Configuration data
+	// Select configuration register(0x01)
+	// Continous Conversion mode, 12-Bit Resolution, Fault Queue is 1(0x60) 0110 0000
+	// Polarity low, Thermostat in Comparator mode, Disables Shutdown mode(0xA0) 1010 0000
+	uint8_t config[3] = {0x01,0x60,0xA0};
 
 	i2c_cmd_handle_t cmd = i2c_cmd_link_create();
 	i2c_master_start(cmd);
@@ -66,7 +67,7 @@ void tsdz_tmp112_read(void) {
 	if (!initialized)
 		return;
 
-	char data[2] = {0};
+	uint8_t data[2] = {0};
 	i2c_cmd_handle_t cmd = i2c_cmd_link_create();
 	i2c_master_start(cmd);
 	i2c_master_write_byte(cmd, (TPM112_ADDR << 1) | I2C_MASTER_READ, true);
