@@ -80,7 +80,7 @@
 #define DEFAULT_BT_UPDATE_DELAY			25 // 250 ms (4 notification/sec)
 #define MIN_DS18B20_PIN		 			3
 #define MAX_DS18B20_PIN		 			31
-#define DEFAULT_DS18B20_PIN				25
+#define DEFAULT_DS18B20_PIN				4
 
 #pragma pack(1)
 typedef struct _esp32_cfg
@@ -135,7 +135,7 @@ typedef struct _tsdz_status
 	volatile uint8_t ui8_assist_level;
 	volatile uint16_t ui16_wheel_speed_x10;
 	volatile uint8_t ui8_pedal_cadence_RPM;
-	volatile uint16_t ui16_motor_temperaturex10;
+	volatile int16_t i16_motor_temperaturex10;
 	volatile uint16_t ui16_pedal_power_x10;
 	volatile uint16_t ui16_battery_voltage_x1000;
 	volatile uint8_t ui8_battery_current_x10;
@@ -156,6 +156,7 @@ typedef struct _tsdz_debug
 	volatile uint8_t ui8_foc_angle;
 	volatile uint16_t ui16_pedal_torque_x100;
 	volatile uint16_t ui16_cadence_sensor_pulse_high_percentage_x10;
+	volatile int16_t i16_pcb_temperaturex10;
 } struct_tsdz_debug;
 
 

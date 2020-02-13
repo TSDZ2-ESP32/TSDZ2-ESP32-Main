@@ -5,21 +5,7 @@
  *      Author: Max
  */
 
-#include "esp_partition.h"
-#include "esp_err.h"
-#include "esp_system.h"
-#include "esp_ota_ops.h"
-
-void tsdz_boot_to_factory(void) {
-	esp_partition_iterator_t pi = esp_partition_find(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_FACTORY, NULL);
-	if(pi != NULL) {
-		const esp_partition_t* factory = esp_partition_get(pi);
-		esp_partition_iterator_release(pi);
-		if(esp_ota_set_boot_partition(factory) == ESP_OK)
-			esp_restart();
-	}
-}
-
+#include <stdint.h>
 
 uint32_t filter(uint32_t ui32_new_value, uint32_t ui32_old_value, uint8_t ui8_alpha)
 {

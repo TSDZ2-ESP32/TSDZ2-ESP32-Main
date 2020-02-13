@@ -5,7 +5,6 @@
  *      Author: Max
  */
 
-#include "tsdz_ota.h"
 
 #include <string.h>
 
@@ -21,9 +20,11 @@
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
 #include "esp_http_client.h"
-#include "tsdz_nvs.h"
-#include "tsdz_bt.h"
+
 #include "tsdz_ota.h"
+
+#include "tsdz_bt.h"
+#include "tsdz_nvs.h"
 #include "tsdz_commands.h"
 
 static const char *TAG = "tsdz_esp_ota";
@@ -142,6 +143,7 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 	return ESP_OK;
 }
 
+// OTA_0 and OTA_1 are the partition for the main app, OTA_2 is the partition of the STM8 Loader App
 static void esp_ota_download(const char* url)
 {
 	esp_err_t err;
@@ -337,7 +339,7 @@ static void stm8_ota_download(const char* url)
 	exit:
 	ESP_LOGI(TAG, "Disconnecting Wifi...");
 	disconnect = 1,
-			esp_wifi_disconnect();
+	esp_wifi_disconnect();
 	vTaskDelay(300 / portTICK_PERIOD_MS);
 	esp_wifi_stop();
 	vTaskDelay(300 / portTICK_PERIOD_MS);
@@ -364,7 +366,7 @@ uint8_t checkLoaderPartition() {
 
 	partition = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_OTA_2, NULL);
 	if (partition == NULL) {
-		ESP_LOGE(TAG, "OTA 3 partition not found!");
+		ESP_LOGE(TAG, "OTA 2 partition not found!");
 		return 0;
 	}
 	err = esp_ota_get_partition_description(partition, &app_desc);

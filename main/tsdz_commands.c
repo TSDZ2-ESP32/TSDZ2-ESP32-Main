@@ -14,6 +14,7 @@
 #include "esp_ota_ops.h"
 
 #include "tsdz_commands.h"
+
 #include "tsdz_bt.h"
 #include "tsdz_nvs.h"
 #include "tsdz_ota.h"
@@ -47,6 +48,7 @@ int exec_command(uint8_t* value, uint16_t len) {
 	return 1;
 }
 
+// Read/Set the ESP32 configuration (DS18B20 data pin, BT update interval, LCD pin mapping)
 static int command_esp32_cfg(uint8_t* value, uint16_t len) {
 	if (value[0] == SET) {
 		uint8_t ret_val[3] = {CMD_ESP32_CFG,SET,0};
@@ -82,7 +84,7 @@ static int command_esp32_cfg(uint8_t* value, uint16_t len) {
 	}
 }
 
-
+// Control the cadence sensor calibration procedure Start/Stop/Save
 static int command_cadence_calib(uint8_t* value, uint16_t len) {
 	uint8_t ret_val[3] = {CMD_CADENCE_CALIBRATION,value[0],0};
 	uint16_t val;
@@ -106,7 +108,7 @@ static int command_cadence_calib(uint8_t* value, uint16_t len) {
 	return ret_val[2];
 }
 
-
+// Start the OTA update process for ESP32 main app, ESP32 OTA STM8S Loader and STM8S Firmware
 static int command_ota(uint8_t* value, uint16_t len, uint8_t cmdType) {
 	uint8_t ret_val[2] = {cmdType,0};
 
@@ -124,6 +126,7 @@ static int command_ota(uint8_t* value, uint16_t len, uint8_t cmdType) {
 	return ret_val[1];
 }
 
+// Read the STM8 OTA result status from NVS
 static int command_stm8_ota_status(void) {
 	uint8_t ret_val[2] = {CMD_STM8_OTA_STATUS,0xff};
 	tsdz_nvs_get_ota_status(&ret_val[1]);
@@ -131,6 +134,7 @@ static int command_stm8_ota_status(void) {
 	return 0;
 }
 
+// Get the ESP32 Firmware version (both Main App and STM8S OTA Loader)
 static int get_app_version(void) {
 	// Confirm partition is valid in case of OTA Update
 	ota_confirm_partition();

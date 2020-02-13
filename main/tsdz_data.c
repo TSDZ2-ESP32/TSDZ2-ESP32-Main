@@ -21,18 +21,24 @@
 const __attribute__((section(".rodata_custom_desc"))) uint32_t bt_passkey = CONFIG_BT_PIN;
 
 
+// System Configuration parameters
+// Readed from NVS at startup
 struct_esp32_cfg esp32_cfg = {
 	.bt_update_delay = DEFAULT_BT_UPDATE_DELAY, //
 	.ds18b20_pin = DEFAULT_DS18B20_PIN,
 	.alternate_lcd_pin = 0
 };
 
+// Motor Configuration parameters
+// Readed from NVS at startup
+struct_tsdz_cfg tsdz_cfg;
+
 struct_tsdz_status tsdz_status = {
 	.ui8_riding_mode = OFF_MODE,
 	.ui8_assist_level = 0,
 	.ui16_wheel_speed_x10 = 0,
 	.ui8_pedal_cadence_RPM = 0,
-	.ui16_motor_temperaturex10 = 0,
+	.i16_motor_temperaturex10 = -999,
 	.ui16_pedal_power_x10 = 0,
 	.ui16_battery_voltage_x1000 = 0,
 	.ui8_battery_current_x10 = 0,
@@ -49,7 +55,8 @@ struct_tsdz_debug tsdz_debug = {
 	.ui16_motor_speed_erps = 0,
 	.ui8_foc_angle = 0,
 	.ui16_pedal_torque_x100 = 0,
-	.ui16_cadence_sensor_pulse_high_percentage_x10 = 0
+	.ui16_cadence_sensor_pulse_high_percentage_x10 = 0,
+	.i16_pcb_temperaturex10 = -999
 };
 
 const struct_tsdz_cfg tsdz_default_cfg = {
@@ -88,8 +95,6 @@ const struct_tsdz_cfg tsdz_default_cfg = {
 };
 
 
-// System Configuration parameters
-struct_tsdz_cfg tsdz_cfg;
 
 // OEM LCD values
 static uint8_t ui8_oem_wheel_diameter;
@@ -239,17 +244,17 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
 	else if (ui8_BatteryError == BATTERY_OVERVOLTAGE)
 		ui8_error_code = OEM_ERROR_OVERVOLTAGE;
 	if (tsdz_cfg.ui8_esp32_temp_control || tsdz_cfg.ui8_optional_ADC_function == TEMPERATURE_CONTROL) {
-		if (tsdz_status.ui16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_max_value_to_limit*10) {
+		if (tsdz_status.i16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_max_value_to_limit*10) {
 			// Temperature Error fixed
 			temperatureError = 1;
 			temperatureErrorOn = 1;
 			temperatureErrorCounter = 0;
 			ui8_error_code = OEM_ERROR_OVERTEMPERATURE;
-		} else if (tsdz_status.ui16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_min_value_to_limit*10) {
+		} else if (tsdz_status.i16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_min_value_to_limit*10) {
 			// Temperature Error blinking slow to fast
 			if (temperatureError) {
 				temperatureErrorCounter++;
-				int counter = map(tsdz_status.ui16_motor_temperaturex10,
+				int counter = map(tsdz_status.i16_motor_temperaturex10,
 						tsdz_cfg.ui8_motor_temperature_min_value_to_limit*10,
 						tsdz_cfg.ui8_motor_temperature_max_value_to_limit*10,
 						15,
@@ -340,16 +345,16 @@ void processControllerMessage(const uint8_t ct_os_message[]) {
 
 	// motor temperature
 	if (!tsdz_cfg.ui8_esp32_temp_control && (tsdz_cfg.ui8_optional_ADC_function == TEMPERATURE_CONTROL))
-		tsdz_status.ui16_motor_temperaturex10 = ct_os_message[17]*10;
+		tsdz_status.i16_motor_temperaturex10 = ct_os_message[17]*10;
 
 	update_battery();
 	if ((tsdz_status.ui8_controller_system_state == NO_ERROR) && (ui8_BatteryError == BATTERY_OVERVOLTAGE)) {
 		tsdz_status.ui8_controller_system_state = ERROR_OVERVOLTAGE;
 	} else if (tsdz_status.ui8_controller_system_state == NO_ERROR &&
 			(tsdz_cfg.ui8_esp32_temp_control || tsdz_cfg.ui8_optional_ADC_function == TEMPERATURE_CONTROL)) {
-		if (tsdz_status.ui16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_max_value_to_limit*10)
+		if (tsdz_status.i16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_max_value_to_limit*10)
 			tsdz_status.ui8_controller_system_state = ERROR_TEMPERATURE_MAX;
-		else if (tsdz_status.ui16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_min_value_to_limit*10) {
+		else if (tsdz_status.i16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_min_value_to_limit*10) {
 			tsdz_status.ui8_controller_system_state = ERROR_TEMPERATURE_LIMIT;
 		}
 	}
@@ -462,7 +467,7 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
 
 			// max battery current in amps
 			if (tsdz_cfg.ui8_esp32_temp_control) {
-				lcd_os_message[6] = map((uint32_t) tsdz_status.ui16_motor_temperaturex10,
+				lcd_os_message[6] = map((uint32_t) tsdz_status.i16_motor_temperaturex10,
 						(uint32_t) tsdz_cfg.ui8_motor_temperature_min_value_to_limit * 10,
 						(uint32_t) tsdz_cfg.ui8_motor_temperature_max_value_to_limit * 10,
 						(uint32_t) tsdz_cfg.ui8_battery_max_current,
