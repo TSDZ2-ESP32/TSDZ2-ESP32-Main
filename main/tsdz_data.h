@@ -166,6 +166,7 @@ extern const struct_tsdz_cfg	tsdz_default_cfg;
 extern struct_tsdz_cfg			tsdz_cfg;
 extern struct_tsdz_status		tsdz_status;
 extern struct_tsdz_debug		tsdz_debug;
+extern uint8_t					stm8_fw_version;
 extern uint32_t 				ui32_wh_x10_offset;
 extern uint32_t					ui32_wh_x10;
 extern volatile uint8_t			ui8_cadence_sensor_calibration;

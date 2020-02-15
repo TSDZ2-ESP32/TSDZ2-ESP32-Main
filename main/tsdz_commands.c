@@ -165,6 +165,10 @@ static int get_app_version(void) {
 			len += strlen("EMP");
 		}
 	}
+	ret[len++] = '|';
+	ret[len++] = stm8_fw_version;
+
+
 	tsdz_bt_notify_command((uint8_t*)ret, len);
 	return 0;
 }

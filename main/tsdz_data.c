@@ -94,7 +94,7 @@ const struct_tsdz_cfg tsdz_default_cfg = {
 	.ui8_walk_assist_level = {20,30,40,48},
 };
 
-
+uint8_t stm8_fw_version = 255;
 
 // OEM LCD values
 static uint8_t ui8_oem_wheel_diameter;
@@ -317,12 +317,17 @@ void processControllerMessage(const uint8_t ct_os_message[]) {
 	tsdz_status.ui16_wheel_speed_x10 = (((uint16_t) ct_os_message[5]) << 8) + ((uint16_t) ct_os_message[4]);
 
 	// brake state
+	// TODO: This field is a a waste of data. 1 byte to carry 1 bit of information.
+	// the 7 MSB bits could be used for FW version info (lcd.c uses only bit 0 info (& 0x01)
+	// in future the bracke info could be mapped to MSB of ct_os_message[16] (ui8_controller_system_state)
 	tsdz_status.ui8_braking = ct_os_message[6] & 1;
+	stm8_fw_version = ct_os_message[6] >> 1;
 
 	// value from optional ADC channel
 	tsdz_debug.ui8_adc_throttle = ct_os_message[7];
 
 	// throttle or temperature control mapped from 0 to 255
+	// TODO: this field is useless and is not used in the Android app
 	tsdz_debug.ui8_throttle = ct_os_message[8];
 
 	// ADC pedal torque
@@ -366,7 +371,10 @@ void processControllerMessage(const uint8_t ct_os_message[]) {
 	tsdz_debug.ui16_pedal_torque_x100 = (((uint16_t) ct_os_message[22]) << 8) + ((uint16_t) ct_os_message[21]);
 
 	// human power x10
-	tsdz_status.ui16_pedal_power_x10 = (((uint16_t) ct_os_message[24]) << 8) + ((uint16_t) ct_os_message[23]);
+	// TODO: This fields (ct_os_message[23] and  ct_os_message[24]) are useless because human power could be
+	// calculated from torque and cadence
+	// tsdz_status.ui16_pedal_power_x10 = (((uint16_t) ct_os_message[24]) << 8) + ((uint16_t) ct_os_message[23]);
+	tsdz_status.ui16_pedal_power_x10 = ((uint32_t)tsdz_debug.ui16_pedal_torque_x100 * tsdz_status.ui8_pedal_cadence_RPM) / 96;
 
 	// cadence sensor pulse high percentage
 	tsdz_debug.ui16_cadence_sensor_pulse_high_percentage_x10 = (((uint16_t) ct_os_message[26]) << 8) + ((uint16_t) ct_os_message[25]);
@@ -555,8 +563,9 @@ void update_energy(void)
 	tsdz_status.ui16_battery_wh = (uint16_t)(ui32_wh_x10 / 10);
 }
 
-
+// Calculate battery level between 0x00 and 0x0C and check battery under/over-voltage
 void update_battery() {
+	// if cell voltage is less than 2V -> overvoltage
 	if ((tsdz_status.ui16_battery_voltage_x1000 / 10 / (uint16_t)tsdz_cfg.ui8_battery_cells_number) <= 200) {
 		ui8_BatteryLevel = 0;
 		ui8_BatteryError = BATTERY_UNDERVOLTAGE;
