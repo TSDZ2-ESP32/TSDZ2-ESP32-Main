@@ -11,13 +11,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define CT_MSG_ID					0x43
-#define LCD_MSG_ID					0x59
 
-#define LCD_OEM_MSG_BYTES			7
-#define CT_OS_MSG_BYTES				29
-#define CT_OEM_MSG_BYTES   			9
-#define LCD_OS_MSG_BYTES			10
 
 // OSF optional ADC function
 #define NOT_IN_USE                                0

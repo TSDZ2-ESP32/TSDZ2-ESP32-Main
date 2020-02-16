@@ -20,6 +20,14 @@
 #define LCD_TX_ALT_PIN 		GPIO_NUM_32  // alternate config for LCD TX Pin
 #define LCD_RX_ALT_PIN 		GPIO_NUM_33  // alternate config for LCD RX Pin
 
+#define CT_MSG_ID					0x43
+#define LCD_MSG_ID					0x59
+
+#define LCD_OEM_MSG_BYTES			7
+#define CT_OS_MSG_BYTES				24
+#define CT_OEM_MSG_BYTES   			9
+#define LCD_OS_MSG_BYTES			10
+
 void tsdz_uart_init(void);
 void tsdz_uart_task(void);
 

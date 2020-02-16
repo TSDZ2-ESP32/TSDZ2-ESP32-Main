@@ -364,20 +364,15 @@ void processControllerMessage(const uint8_t ct_os_message[]) {
 		}
 	}
 
-	// wheel_speed_sensor_tick_counter
-	//tsdz_debug.ui32_wheel_speed_sensor_tick_counter = (((uint32_t) ct_os_message[20]) << 16) + (((uint32_t) ct_os_message[19]) << 8) + ((uint32_t) ct_os_message[18]);
-
 	// pedal torque x100
-	tsdz_debug.ui16_pedal_torque_x100 = (((uint16_t) ct_os_message[22]) << 8) + ((uint16_t) ct_os_message[21]);
+	tsdz_debug.ui16_pedal_torque_x100 = (((uint16_t) ct_os_message[19]) << 8) + ((uint16_t) ct_os_message[18]);
 
 	// human power x10
-	// TODO: This fields (ct_os_message[23] and  ct_os_message[24]) are useless because human power could be
 	// calculated from torque and cadence
-	// tsdz_status.ui16_pedal_power_x10 = (((uint16_t) ct_os_message[24]) << 8) + ((uint16_t) ct_os_message[23]);
 	tsdz_status.ui16_pedal_power_x10 = ((uint32_t)tsdz_debug.ui16_pedal_torque_x100 * tsdz_status.ui8_pedal_cadence_RPM) / 96;
 
 	// cadence sensor pulse high percentage
-	tsdz_debug.ui16_cadence_sensor_pulse_high_percentage_x10 = (((uint16_t) ct_os_message[26]) << 8) + ((uint16_t) ct_os_message[25]);
+	tsdz_debug.ui16_cadence_sensor_pulse_high_percentage_x10 = (((uint16_t) ct_os_message[21]) << 8) + ((uint16_t) ct_os_message[20]);
 }
 
 void getControllerMessage(uint8_t lcd_os_message[]) {

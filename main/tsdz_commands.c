@@ -139,14 +139,19 @@ static int get_app_version(void) {
 	// Confirm partition is valid in case of OTA Update
 	ota_confirm_partition();
 
-	char ret[66];
+	char ret[20];
 	int len;
 	ret[0] = CMD_GET_APP_VERSION;
 
 	// App version
 	const esp_app_desc_t* app_desc = esp_ota_get_app_description();
-	strcpy(&ret[1], app_desc->version);
-	len = strlen(app_desc->version) + 1;
+	if (strlen(app_desc->version) > 8) {
+		strncpy(&ret[1], app_desc->version, 8);
+		len = 8+1;
+	} else {
+		strcpy(&ret[1], app_desc->version);
+		len = strlen(app_desc->version) + 1;
+	}
 	ret[len++] = '|';
 
 	// Loader version
@@ -158,8 +163,13 @@ static int get_app_version(void) {
 		esp_app_desc_t loader_desc;
 		esp_err_t err = esp_ota_get_partition_description(partition, &loader_desc);
 		if (err == ESP_OK) {
-			strcpy(&ret[len], loader_desc.version);
-			len += strlen(loader_desc.version);
+			if (strlen(loader_desc.version) > 8) {
+				strncpy(&ret[len], loader_desc.version, 8);
+				len += 8;
+			} else {
+				strcpy(&ret[len], loader_desc.version);
+				len += strlen(loader_desc.version);
+			}
 		} else {
 			strcpy(&ret[len], "EMP");
 			len += strlen("EMP");
@@ -167,7 +177,6 @@ static int get_app_version(void) {
 	}
 	ret[len++] = '|';
 	ret[len++] = stm8_fw_version;
-
 
 	tsdz_bt_notify_command((uint8_t*)ret, len);
 	return 0;
