@@ -3,7 +3,7 @@
 # project subdirectory.
 #
 
-PROJECT_NAME := esp32_tsdz2
+PROJECT_NAME := TSDZ2-ESP32-Main
 
 include $(IDF_PATH)/make/project.mk
 

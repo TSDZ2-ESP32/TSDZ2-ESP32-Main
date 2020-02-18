@@ -147,6 +147,7 @@ void processLcdMessage(const uint8_t lcd_oem_message[]) {
 			tsdz_status.ui8_assist_level = 1;
 			break;
 		case OEM_ASSIST_LEVEL0:
+		default:
 			tsdz_status.ui8_assist_level = 0;
 			break;
 	}
@@ -399,17 +400,34 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
 			}
 			break;
 		case CADENCE_ASSIST_MODE:
-			lcd_os_message[3] = tsdz_cfg.ui8_cadence_assist_level[tsdz_status.ui8_assist_level - 1];
+			if (tsdz_status.ui8_assist_level > 0) {
+				lcd_os_message[3] = tsdz_cfg.ui8_cadence_assist_level[tsdz_status.ui8_assist_level - 1];
+			} else {
+				lcd_os_message[3] = 0;
+			}
 			break;
 		case TORQUE_ASSIST_MODE:
-			lcd_os_message[3] = tsdz_cfg.ui8_torque_assist_level[tsdz_status.ui8_assist_level - 1];
+			if (tsdz_status.ui8_assist_level > 0) {
+				lcd_os_message[3] = tsdz_cfg.ui8_torque_assist_level[tsdz_status.ui8_assist_level - 1];
+			} else {
+				lcd_os_message[3] = 0;
+			}
 			break;
 		case eMTB_ASSIST_MODE:
-			lcd_os_message[3] = tsdz_cfg.ui8_eMTB_assist_sensitivity[tsdz_status.ui8_assist_level - 1];
+			if (tsdz_status.ui8_assist_level > 0) {
+				lcd_os_message[3] = tsdz_cfg.ui8_eMTB_assist_sensitivity[tsdz_status.ui8_assist_level - 1];
+			} else {
+				lcd_os_message[3] = 0;
+			}
 			break;
 		case WALK_ASSIST_MODE:
-			lcd_os_message[3] = tsdz_cfg.ui8_walk_assist_level[tsdz_status.ui8_assist_level - 1];
+			if (tsdz_status.ui8_assist_level > 0) {
+				lcd_os_message[3] = tsdz_cfg.ui8_walk_assist_level[tsdz_status.ui8_assist_level - 1];
+			} else {
+				lcd_os_message[3] = 0;
+			}
 			break;
+		case CRUISE_MODE:
 		default:
 			lcd_os_message[3] = 0;
 			break;
