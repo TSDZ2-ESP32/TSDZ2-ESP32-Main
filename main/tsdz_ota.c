@@ -88,10 +88,10 @@ void wifi_init_sta(char* ssid, char* pwd)
 	ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
 
 	wifi_config_t wifi_config = {
-			.sta = {
-					.ssid = "prova",
-					.password = "prova3"
-			},
+		.sta = {
+			.ssid = "prova",
+			.password = "prova3"
+		},
 	};
 	strcpy((char*)wifi_config.sta.ssid, ssid);
 	strcpy((char*)wifi_config.sta.password, pwd);
@@ -252,8 +252,8 @@ static void esp_ota_download(const char* url)
 	exit:
 
 	ESP_LOGI(TAG, "Disconnecting Wifi...");
-	disconnect = 1,
-			esp_wifi_disconnect();
+	disconnect = 1;
+	esp_wifi_disconnect();
 	vTaskDelay(300 / portTICK_PERIOD_MS);
 	esp_wifi_stop();
 	vTaskDelay(300 / portTICK_PERIOD_MS);
@@ -338,7 +338,7 @@ static void stm8_ota_download(const char* url)
 
 	exit:
 	ESP_LOGI(TAG, "Disconnecting Wifi...");
-	disconnect = 1,
+	disconnect = 1;
 	esp_wifi_disconnect();
 	vTaskDelay(300 / portTICK_PERIOD_MS);
 	esp_wifi_stop();
