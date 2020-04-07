@@ -30,6 +30,11 @@ void tsdz_tmp112_init(void) {
         return;
     }
 
+    err = i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0);
+	if (err != ESP_OK) {
+		ESP_LOGW(TAG,"i2c_driver_install error: %d", err);
+	}
+
     // TMP112 Configuration data
     // Select configuration register(0x01)
     // Continous Conversion mode, 12-Bit Resolution, Fault Queue is 1(0x60) 0110 0000
@@ -37,28 +42,57 @@ void tsdz_tmp112_init(void) {
     uint8_t config[3] = {0x01,0x60,0xA0};
 
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (TPM112_ADDR << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write(cmd, config, 3, true);
-    i2c_master_stop(cmd);
+    err = i2c_master_start(cmd);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG,"i2c_master_start error: %d", err);
+    }
+    err = i2c_master_write_byte(cmd, (TPM112_ADDR << 1) | I2C_MASTER_WRITE, true);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG,"i2c_master_write_byte error: %d", err);
+    }
+    err = i2c_master_write(cmd, config, 3, true);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG,"i2c_master_write error: %d", err);
+    }
+    err = i2c_master_stop(cmd);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG,"i2c_master_stop error: %d", err);
+    }
     err = i2c_master_cmd_begin(I2C_NUM_0, cmd, 100 / portTICK_RATE_MS);
     if (err != ESP_OK) {
         ESP_LOGW(TAG,"TMP112 sensor not found: %d", err);
         i2c_cmd_link_delete(cmd);
         return;
     }
+    i2c_cmd_link_delete(cmd);
+
     ESP_LOGI(TAG,"TMP112 Sensor initialized");
+    vTaskDelay(pdMS_TO_TICKS(10));
 
     // now reset again to 0 to the pointer register
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (TPM112_ADDR << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write_byte(cmd, 0, true);
-    i2c_master_stop(cmd);
-    if(i2c_master_cmd_begin(I2C_NUM_0, cmd, 100 / portTICK_RATE_MS) == ESP_OK) {
+    cmd = i2c_cmd_link_create();
+    err = i2c_master_start(cmd);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG,"i2c_master_start error: %d", err);
+    }
+    err = i2c_master_write_byte(cmd, (TPM112_ADDR << 1) | I2C_MASTER_WRITE, true);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG,"i2c_master_write_byte 1 error: %d", err);
+    }
+    err = i2c_master_write_byte(cmd, 0, true);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG,"i2c_master_write_byte 2 error: %d", err);
+    }
+    err = i2c_master_stop(cmd);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG,"i2c_master_stop error: %d", err);
+    }
+    err = i2c_master_cmd_begin(I2C_NUM_0, cmd, 100 / portTICK_RATE_MS);
+    if (err == ESP_OK) {
         ESP_LOGI(TAG,"TMP112 Sensor ready!");
         initialized = 1;
     } else {
-        ESP_LOGW(TAG,"TMP112 sensor not found: %d", err);
+        ESP_LOGW(TAG,"i2c_master_cmd_begin error: %d", err);
     }
     i2c_cmd_link_delete(cmd);
 }
