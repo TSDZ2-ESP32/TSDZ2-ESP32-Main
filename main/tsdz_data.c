@@ -14,7 +14,7 @@
 #include "tsdz_uart.h"
 #include "tsdz_utils.h"
 
-#define TAG "tsdz_data"
+static const char *TAG = "tsdz_data";
 
 // add "target_link_libraries(${COMPONENT_TARGET} "-u bt_passkey")"to CMakeLists.txt to ensure that the parameter
 // is located correctly after the header at the beginning of the bin app image file
@@ -26,12 +26,8 @@ const __attribute__((section(".rodata_custom_desc"))) uint32_t bt_passkey = CONF
 struct_esp32_cfg esp32_cfg = {
     .bt_update_delay = DEFAULT_BT_UPDATE_DELAY, //
     .ds18b20_pin = DEFAULT_DS18B20_PIN,
-    .alternate_lcd_pin = 0
+    .log_level = 1
 };
-
-// Motor Configuration parameters
-// Readed from NVS at startup
-struct_tsdz_cfg tsdz_cfg;
 
 struct_tsdz_status tsdz_status = {
     .ui8_riding_mode = OFF_MODE,
@@ -59,7 +55,10 @@ struct_tsdz_debug tsdz_debug = {
     .i16_pcb_temperaturex10 = -999
 };
 
-const struct_tsdz_cfg tsdz_default_cfg = {
+// Motor Configuration parameters (can be updated by the Android App)
+// These are the initialization values stored into NVS at first startup.
+// Then the values are overwritten at the startup with the values stored into NVS
+struct_tsdz_cfg tsdz_cfg = {
     .ui8_motor_type = 1,
     .ui8_motor_temperature_min_value_to_limit = 65,
     .ui8_motor_temperature_max_value_to_limit = 80,

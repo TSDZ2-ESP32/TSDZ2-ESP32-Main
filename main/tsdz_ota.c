@@ -27,7 +27,7 @@
 #include "tsdz_nvs.h"
 #include "tsdz_commands.h"
 
-static const char *TAG = "tsdz_esp_ota";
+static const char *TAG = "tsdz_ota";
 
 #define READ_BUFFER_SIZE 32*1024
 
@@ -47,7 +47,9 @@ extern TaskHandle_t mainTaskHandle;
 
 static char *ssid;
 static char *pwd;
-static char *url;
+static int port;
+static char *url = NULL;
+
 static uint8_t updateType;
 static uint8_t disconnect = 0;
 
@@ -66,8 +68,10 @@ static void event_handler(void* arg, esp_event_base_t event_base,
         ESP_LOGI(TAG,"connect to the AP fail");
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        ESP_LOGI(TAG, "got ip:%s",
-                ip4addr_ntoa(&event->ip_info.ip));
+        if (url == NULL)
+            url = malloc(32*sizeof(char));
+        snprintf(url, 32, "http://%s:%d", ip4addr_ntoa(&event->ip_info.gw), port);
+        ESP_LOGI(TAG, "got ip - connecting to url:%s", url);
         s_retry_num = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
@@ -396,7 +400,7 @@ uint8_t checkLoaderPartition() {
 }
 
 void ota_task(void * pvParameters) {
-    ESP_LOGI(TAG, "ota_task - ssid:%s, pwd:%s, url:%s", ssid, pwd, url);
+    ESP_LOGI(TAG, "ota_task - ssid:%s, pwd:%s, port:%d", ssid, pwd, port);
     wifi_init_sta(ssid, pwd);
     if (updateType == STM8)
         stm8_ota_download(url);
@@ -409,13 +413,17 @@ uint8_t ota_start(uint8_t* data, uint16_t len, uint8_t what) {
         ESP_LOGE(TAG, "STM8 Loader Partition not valid");
         return 2;
     }
-    char* copy = (char*)malloc(len+1);
-    memcpy(copy, data, len);
-    copy[len] = '\0';
-    ssid = strsep(&copy, "|");
-    pwd  = strsep(&copy, "|");
-    url  = strsep(&copy, "|");
-    if (ssid == NULL || pwd == NULL || url == NULL) {
+
+    port = 0;
+    char *copy, *r;
+    copy = r = (char*)malloc(len+1);
+    memcpy(r, data, len);
+    r[len] = '\0';
+    ssid = strsep(&r, "|");
+    pwd  = strsep(&r, "|");
+    port = atoi(strsep(&r, "|"));
+
+    if (ssid == NULL || pwd == NULL || port == 0) {
         ESP_LOGE(TAG, "ota_start - Command parameters Error");
         free(copy);
         return 1;

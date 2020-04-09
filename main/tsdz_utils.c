@@ -6,6 +6,31 @@
  */
 
 #include <stdint.h>
+#include "tsdz_data.h"
+#include "esp_log.h"
+
+void setLogLevel(void) {
+    switch (esp32_cfg.log_level) {
+        case 0:
+            esp_log_level_set("*", ESP_LOG_NONE);
+            break;
+        case 1:
+            esp_log_level_set("*", ESP_LOG_ERROR);
+            break;
+        case 2:
+            esp_log_level_set("*", ESP_LOG_WARN);
+            break;
+        case 3:
+            esp_log_level_set("*", ESP_LOG_INFO);
+            break;
+        case 4:
+            esp_log_level_set("*", ESP_LOG_DEBUG);
+            break;
+        case 5:
+            esp_log_level_set("*", ESP_LOG_VERBOSE);
+            break;
+    }
+}
 
 uint32_t filter(uint32_t ui32_new_value, uint32_t ui32_old_value, uint8_t ui8_alpha)
 {

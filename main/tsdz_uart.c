@@ -23,6 +23,8 @@
 #define ETX                         0xEF
 
 
+static const char *TAG = "tsdz_uart";
+
 char senBuf[256];
 
 uint8_t lcd_recived_msg[LCD_OEM_MSG_BYTES];
@@ -40,8 +42,6 @@ uint8_t usb_message[256];
 uint8_t usb_message_length;
 uint8_t usb_rx_counter = 0;
 uint8_t usb_state_machine = 0;
-
-#define TAG "tsdz_urt"
 
 bool lcdMessageReceived(void);
 bool ctMessageReceived(void);
@@ -67,10 +67,8 @@ void tsdz_uart_init(void) {
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "uart_param_config LCD_UART error=%d", err);
     }
-    if (esp32_cfg.alternate_lcd_pin)
-        err = uart_set_pin(LCD_UART, LCD_TX_ALT_PIN, LCD_RX_ALT_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-    else
-        err = uart_set_pin(LCD_UART, LCD_RX_PIN, LCD_TX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+
+    err = uart_set_pin(LCD_UART, LCD_RX_PIN, LCD_TX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "uart_set_pin LCD_UART error=%d", err);
     }

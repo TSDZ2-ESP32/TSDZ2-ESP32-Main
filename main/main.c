@@ -24,7 +24,7 @@
 #include "tsdz_ds18b20.h"
 #include "tsdz_tmp112.h"
 
-#define APP_MAIN "app_main"
+static const char *TAG = "tsdz_main";
 
 void mainTask(void * pvParameters);
 
@@ -34,24 +34,27 @@ void app_main(void)
 {
     tsdz_nvs_init();
     tsdz_nvs_read_cfg();
-    ESP_LOGI(APP_MAIN, "cfg read done");
+    ESP_LOGI(TAG, "cfg read done");
+
+    // Set Log level according to NVS configuration
+    setLogLevel();
 
     tsdz_bt_init();
-    ESP_LOGI(APP_MAIN, "bt init done");
+    ESP_LOGD(TAG, "bt init done");
 
     // wait to avoid STM8 bootloader activation
-    vTaskDelay(pdMS_TO_TICKS(600));
+    vTaskDelay(pdMS_TO_TICKS(1000));
 
     tsdz_uart_init();
-    ESP_LOGI(APP_MAIN, "uart init done");
+    ESP_LOGI(TAG, "uart init done");
 
     tsdz_tmp112_init();
-    ESP_LOGI(APP_MAIN, "TMP112 init done");
+    ESP_LOGI(TAG, "TMP112 init done");
 
     xTaskCreate( mainTask, "main_task", 2048, NULL, 5, &mainTaskHandle );
     if (mainTaskHandle == NULL) {
-        ESP_LOGE(APP_MAIN, "main_task Start Task Error\n");
-        ESP_LOGE(APP_MAIN, "ESP will restart in 3 seconds\n");
+        ESP_LOGE(TAG, "main_task Start Task Error\n");
+        ESP_LOGE(TAG, "ESP will restart in 3 seconds\n");
         vTaskDelay(pdMS_TO_TICKS(3000));
         esp_restart();
     }
@@ -66,7 +69,7 @@ void mainTask(void * pvParameters) {
     static uint8_t motor_temp_task_count = 2;
     static uint8_t pcb_temp_task_count = 3;
 
-    ESP_LOGI(APP_MAIN, "Main task started");
+    ESP_LOGI(TAG, "Main task started");
 
     TickType_t xLastWakeUpTime = xTaskGetTickCount();
 

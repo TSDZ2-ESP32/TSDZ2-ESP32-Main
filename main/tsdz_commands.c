@@ -14,7 +14,7 @@
 #include "esp_ota_ops.h"
 
 #include "tsdz_commands.h"
-
+#include "tsdz_utils.h"
 #include "tsdz_bt.h"
 #include "tsdz_nvs.h"
 #include "tsdz_ota.h"
@@ -57,15 +57,16 @@ static int command_esp32_cfg(uint8_t* value, uint16_t len) {
             esp32_cfg.bt_update_delay = DEFAULT_BT_UPDATE_DELAY;
         else
             esp32_cfg.bt_update_delay = value[1];
+
         if (value[2] < MIN_DS18B20_PIN || value[2] > MAX_DS18B20_PIN)
             esp32_cfg.ds18b20_pin = DEFAULT_DS18B20_PIN;
         else
             esp32_cfg.ds18b20_pin = value[2];
 
-        if (value[3] != 0)
-            esp32_cfg.alternate_lcd_pin = 1;
-        else
-            esp32_cfg.alternate_lcd_pin = 0;
+        if (value[3] <= 5) {
+            esp32_cfg.log_level = value[3];
+            setLogLevel();
+        }
 
         tsdz_update_esp32_cfg();
         tsdz_bt_notify_command(ret_val, 3);
@@ -74,7 +75,7 @@ static int command_esp32_cfg(uint8_t* value, uint16_t len) {
         uint8_t ret_val[6] = {CMD_ESP32_CFG,GET,0,0,0,0};
         ret_val[3] = esp32_cfg.bt_update_delay;
         ret_val[4] = esp32_cfg.ds18b20_pin;
-        ret_val[5] = esp32_cfg.alternate_lcd_pin;
+        ret_val[5] = esp32_cfg.log_level;
         tsdz_bt_notify_command(ret_val, 6);
         return 0;
     } else {
