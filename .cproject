@@ -113,7 +113,7 @@
 			<target name="flash" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>python</buildCommand>
 				<buildArguments>${IDF_PATH}/tools/idf.py</buildArguments>
-				<buildTarget>--port COM26 --baud 460800 flash</buildTarget>
+				<buildTarget>--port COM6 --baud 460800 flash</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>true</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>

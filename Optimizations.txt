@@ -1,0 +1,22 @@
++ Boot speed Optimizations +
+
+Optimizations in menuconfig
+	- Set Flash in QIO mode
+	Serial flasher config -> Flash SPI mode -> QIO
+	(leave Flash SPI speed to 40MHz)
+
+	- Bootloader log verbosity to ERROR
+	Bootloader config -> Bootloader log verbosity -> Error
+
+	- Heap corruption detection Basic
+	Component config > Heap memory debugging -> Heap corruption detection -> Basic
+
+Optimization in esp-idf source
+	Edit the file C:\Users\<Username>\esp\esp-idf\components\bootloader_support\src\bootloader_utility.c
+	search the function try_load_partition( ... ) and change the call bootloader_load_image() to bootloader_load_image_no_verify()
+	
+	
++ Power consumption optimization +
+
+Optimizations in menuconfig
+	Component config -> ESP32-specific -> CPU frequency -> 80MHz

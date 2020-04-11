@@ -17,12 +17,14 @@
 #include "tsdz_utils.h"
 #include "tsdz_bt.h"
 #include "tsdz_nvs.h"
-#include "tsdz_ota.h"
 #include "tsdz_data.h"
+#include "tsdz_ota_esp32.h"
 
-static int command_ota(uint8_t* value, uint16_t len, uint8_t cmdType);
+#define GET                         0
+#define SET                         1
+
+static int command_ota(uint8_t* data, uint16_t len, uint8_t cmdType);
 static int get_app_version(void);
-static int command_stm8_ota_status(void);
 static int command_cadence_calib(uint8_t* value, uint16_t len);
 static int command_esp32_cfg(uint8_t* value, uint16_t len);
 
@@ -32,12 +34,8 @@ int exec_command(uint8_t* value, uint16_t len) {
             return get_app_version();
         case CMD_ESP_OTA:
             return command_ota(&value[1], len-1, CMD_ESP_OTA);
-        case CMD_LOADER_OTA:
-            return command_ota(&value[1], len-1, CMD_LOADER_OTA);
         case CMD_STM8S_OTA:
             return command_ota(&value[1], len-1, CMD_STM8S_OTA);
-        case CMD_STM8_OTA_STATUS:
-            return command_stm8_ota_status();
         case CMD_CADENCE_CALIBRATION:
             return command_cadence_calib(&value[1], len-1);
         case CMD_ESP32_CFG:
@@ -110,29 +108,28 @@ static int command_cadence_calib(uint8_t* value, uint16_t len) {
 }
 
 // Start the OTA update process for ESP32 main app, ESP32 OTA STM8S Loader and STM8S Firmware
-static int command_ota(uint8_t* value, uint16_t len, uint8_t cmdType) {
+static int command_ota(uint8_t* data, uint16_t len, uint8_t cmdType) {
     uint8_t ret_val[2] = {cmdType,0};
 
     if (cmdType == CMD_ESP_OTA)
-        ret_val[1] = ota_start(value, len, ESP32);
-    else if (cmdType == CMD_LOADER_OTA)
-        ret_val[1] = ota_start(value, len, LOADER);
-    else if (cmdType == CMD_STM8S_OTA)
-        ret_val[1] = ota_start(value, len, STM8);
-    else
+        ret_val[1] = ota_esp32_start(data, len);
+    else if (cmdType == CMD_STM8S_OTA) {
+    	// create the Ota Data null terminated string
+    	char* copy = (char*)malloc(len+1);
+    	memcpy(copy, data, len);
+    	copy[len] = '\0';
+    	// Store the data into NVS. At the next boot, the OTA process will be started
+    	if (tsdz_nvs_set_ota(copy) == ESP_OK)
+    		ret_val[1] = 0;
+    	else
+    		ret_val[1] = 1;
+    	free(copy);
+    } else
         ret_val[1] = 0xff;
 
     tsdz_bt_notify_command(ret_val, 2);
 
     return ret_val[1];
-}
-
-// Read the STM8 OTA result status from NVS
-static int command_stm8_ota_status(void) {
-    uint8_t ret_val[2] = {CMD_STM8_OTA_STATUS,0xff};
-    tsdz_nvs_get_ota_status(&ret_val[1]);
-    tsdz_bt_notify_command(ret_val, 2);
-    return 0;
 }
 
 // Get the ESP32 Firmware version (both Main App and STM8S OTA Loader)
@@ -146,38 +143,10 @@ static int get_app_version(void) {
 
     // App version
     const esp_app_desc_t* app_desc = esp_ota_get_app_description();
-    if (strlen(app_desc->version) > 8) {
-        strncpy(&ret[1], app_desc->version, 8);
-        len = 8+1;
-    } else {
-        strcpy(&ret[1], app_desc->version);
-        len = strlen(app_desc->version) + 1;
-    }
-    ret[len++] = '|';
-
-    // Loader version
-    const esp_partition_t *partition = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_OTA_2, NULL);
-    if (partition == NULL) {
-        strcpy(&ret[len], "ERR");
-        len += strlen("ERR");
-    } else {
-        esp_app_desc_t loader_desc;
-        esp_err_t err = esp_ota_get_partition_description(partition, &loader_desc);
-        if (err == ESP_OK) {
-            if (strlen(loader_desc.version) > 8) {
-                strncpy(&ret[len], loader_desc.version, 8);
-                len += 8;
-            } else {
-                strcpy(&ret[len], loader_desc.version);
-                len += strlen(loader_desc.version);
-            }
-        } else {
-            strcpy(&ret[len], "EMP");
-            len += strlen("EMP");
-        }
-    }
-    ret[len++] = '|';
-    ret[len++] = stm8_fw_version;
+    len = snprintf(&ret[1], 19, "%d|%s", stm8_fw_version, app_desc->version);
+    len++;
+    if (len >= 20)
+    	len = 19;
 
     tsdz_bt_notify_command((uint8_t*)ret, len);
     return 0;

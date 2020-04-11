@@ -15,13 +15,14 @@
 #include "sdkconfig.h"
 #include "esp_app_format.h"
 
-#include "tsdz_bt.h"
 #include "tsdz_uart.h"
 #include "tsdz_nvs.h"
+#include "tsdz_ota_stm8.h"
+#include "tsdz_bt.h"
 #include "tsdz_data.h"
-#include "tsdz_ota.h"
 #include "tsdz_utils.h"
 #include "tsdz_ds18b20.h"
+#include "tsdz_ota_esp32.h"
 #include "tsdz_tmp112.h"
 
 static const char *TAG = "tsdz_main";
@@ -32,7 +33,15 @@ TaskHandle_t mainTaskHandle = NULL;
 
 void app_main(void)
 {
-    tsdz_nvs_init();
+	// initialize the UART
+    tsdz_uart_init();
+
+    // Init NVS
+	// if OTA_BOOT data is found, start ASAP the STM8 bootloader activation and the OTA process
+    char* ota_data = tsdz_nvs_init();
+    if (ota_data != NULL)
+    	start_ota_stm8(ota_data);
+
     tsdz_nvs_read_cfg();
     ESP_LOGI(TAG, "cfg read done");
 
@@ -40,13 +49,10 @@ void app_main(void)
     setLogLevel();
 
     tsdz_bt_init();
-    ESP_LOGD(TAG, "bt init done");
+    ESP_LOGI(TAG, "bt init done");
 
     // wait to avoid STM8 bootloader activation
     vTaskDelay(pdMS_TO_TICKS(1000));
-
-    tsdz_uart_init();
-    ESP_LOGI(TAG, "uart init done");
 
     tsdz_tmp112_init();
     ESP_LOGI(TAG, "TMP112 init done");

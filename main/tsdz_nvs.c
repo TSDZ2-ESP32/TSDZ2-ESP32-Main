@@ -19,36 +19,62 @@ static const char *TAG = "tsdz_nvs";
 static const uint8_t NVS_KEY_VAL = 0x05;
 
 // NVS Configuration Key values
-static const char* NVS_KEY = "KEY";
-static const char* TSDZ_CFG_KEY ="TSDZ_CFG";
-static const char* WH_OFFST_KEY    = "WH_OFFSET";
+static const char* NVS_KEY       = "KEY";
+static const char* TSDZ_CFG_KEY  = "TSDZ_CFG";
+static const char* WH_OFFST_KEY  = "WH_OFFSET";
 static const char* ESP32_CFG_KEY = "ESP32_CFG";
 
 // NVS OTA Key values
-static const char* STM8_FW = "STM8FW";
-static const char* BOOT_PARTITION = "BOOT";
-static const char* OTA_RESULT = "OTA_RESULT";
+static const char* OTA_BOOT = "OTA";
 
 
 void tsdz_nvs_write_default_cfg(void);
+static char* get_ota(void);
 
 nvs_handle my_handle;
 
-void tsdz_nvs_init(void) {
+// initialize the NVS and check OTA_BOOT flag.
+// return true if the OTA_BOOT flag is set
+char* tsdz_nvs_init(void) {
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)  {
         const esp_partition_t* nvs_partition =
                 esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, NULL);
-        if(!nvs_partition)
+        if(!nvs_partition) {
             ESP_LOGE(TAG, "FATAL ERROR: No NVS partition found");
+            return NULL;
+        }
         err = (esp_partition_erase_range(nvs_partition, 0, nvs_partition->size));
-        if(err != ESP_OK)
+        if(err != ESP_OK) {
             ESP_LOGE(TAG, "FATAL ERROR: Unable to erase the partition");
+            return NULL;
+        }
     }
 
     err = nvs_open("storage", NVS_READWRITE, &my_handle);
-    if (err != ESP_OK)
-        ESP_LOGE(TAG, "FATAL ERROR: Unable to open NVS");
+    if (err == ESP_OK)
+    	return get_ota();
+
+    ESP_LOGE(TAG, "FATAL ERROR: Unable to open NVS");
+    return NULL;
+}
+
+// return true if the OTA_BOOT flag is set and reset the flag
+static char* get_ota(void) {
+	esp_err_t err;
+	size_t required_size;
+	err = nvs_get_str(my_handle, OTA_BOOT, NULL, &required_size);
+	if (err != ESP_OK)
+		return NULL;
+	char* ota_data = malloc(required_size);
+	err = nvs_get_str(my_handle, OTA_BOOT, ota_data, &required_size);
+	if (err != ESP_OK) {
+		free(ota_data);
+		return NULL;
+	}
+	nvs_erase_key(my_handle, OTA_BOOT);
+	nvs_commit(my_handle);
+	return ota_data;
 }
 
 void tsdz_nvs_read_cfg(void) {
@@ -123,42 +149,14 @@ void tsdz_update_esp32_cfg() {
         ESP_LOGE(TAG, "FATAL ERROR: Unable to commit nvs");
 }
 
-esp_err_t tsdz_nvs_write_stm8s_fw(char* data, uint16_t length) {
-    esp_err_t err, err2;
-    err = nvs_set_blob(my_handle, STM8_FW, data, length);
-    if(err != ESP_OK)
-        ESP_LOGE(TAG, "FATAL ERROR: Unable to write STM8S firmware");
-    err2 = nvs_commit(my_handle);
-    if (err2 != ESP_OK)
-        ESP_LOGE(TAG, "FATAL ERROR: Unable to commit");
-    return err||err2;
-}
-
-void tsdz_nvs_write_boot_partiton(uint8_t data) {
-    esp_err_t err;
-    err = nvs_set_u8(my_handle, BOOT_PARTITION, data);
-    if(err != ESP_OK)
-        ESP_LOGE(TAG, "FATAL ERROR: Unable to write boot partition firmware");
-    err = nvs_commit(my_handle);
+// Set OTA_BOOT data
+esp_err_t tsdz_nvs_set_ota(char* data) {
+    esp_err_t err = nvs_set_str(my_handle, OTA_BOOT, data);
+    err |= nvs_commit(my_handle);
     if (err != ESP_OK)
-        ESP_LOGE(TAG, "FATAL ERROR: Unable to commit");
+        ESP_LOGE(TAG, "ERROR: Unable set OTA Boot");
+    return err;
 }
 
-void tsdz_nvs_get_ota_status(uint8_t* status) {
-    esp_err_t err;
-    err = nvs_get_u8(my_handle, OTA_RESULT, status);
-    if(err != ESP_OK)
-        ESP_LOGE(TAG, "FATAL ERROR: Unable to read OTA Status");
-}
-
-void tsdz_nvs_set_ota_status(uint8_t status) {
-    esp_err_t err;
-    err = nvs_set_u8(my_handle, OTA_RESULT, status);
-    if(err != ESP_OK)
-        ESP_LOGE(TAG, "FATAL ERROR: Unable to write OTA Statuse");
-    err = nvs_commit(my_handle);
-    if (err != ESP_OK)
-        ESP_LOGE(TAG, "FATAL ERROR: Unable to commit");
-}
 
 

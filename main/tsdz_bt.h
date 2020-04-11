@@ -30,6 +30,8 @@ enum
     HRS_IDX_NB,
 };
 
+volatile uint8_t btCommandReady;
+
 void tsdz_bt_init(void);
 void tsdz_bt_update(void);
 void tsdz_bt_notify_command(uint8_t* value, uint8_t length);

@@ -48,6 +48,10 @@ static uint16_t conn_id              = 0xffff;
 
 uint16_t tsdz_handle_table[HRS_IDX_NB];
 
+// if set the client is connected and able to receive notification from Command Characteristic
+volatile uint8_t btCommandReady = 0;
+
+
 typedef struct {
     uint8_t                 *prepare_buf;
     int                     prepare_len;
@@ -493,8 +497,10 @@ esp_gatt_status_t handle_write_value(uint16_t handle, uint8_t *value, uint16_t l
     } else if (tsdz_handle_table[IDX_CHAR_CFG_COMMAND] == handle) {
         if (value[0] == 0x01){
             ESP_LOGI(TAG, "IDX_CHAR_CFG_COMMAND notify enable");
+            btCommandReady = 1;
         } else if (value[0] == 0x00){
             ESP_LOGI(TAG, "IDX_CHAR_CFG_COMMAND notify disable ");
+            btCommandReady = 0;
         } else{
             ESP_LOGE(TAG, "IDX_CHAR_CFG_COMMAND unknown descr value");
         }
@@ -624,13 +630,14 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
         ESP_LOGI(TAG, "SERVICE_START_EVT, status %d, service_handle %d", param->start.status, param->start.service_handle);
         break;
     case ESP_GATTS_CONNECT_EVT:
+    	btCommandReady = 0;
         ESP_LOGI(TAG, "ESP_GATTS_CONNECT_EVT, conn_id = %d", param->connect.conn_id);
 
         /* start security connect with peer device when receive the connect event sent by the master */
         esp_ble_set_encryption(param->connect.remote_bda, ESP_BLE_SEC_ENCRYPT_MITM);
 
         conn_id = param->connect.conn_id;
-        esp_log_buffer_hex(TAG, param->connect.remote_bda, 6);
+        //esp_log_buffer_hex(TAG, param->connect.remote_bda, 6);
         esp_ble_conn_update_params_t conn_params = {0};
         memcpy(conn_params.bda, param->connect.remote_bda, sizeof(esp_bd_addr_t));
         /* For the iOS system, please refer to Apple official documents about the BLE connection parameters restrictions. */
@@ -644,6 +651,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
     case ESP_GATTS_DISCONNECT_EVT:
         conn_id = 0xffff;
         ESP_LOGI(TAG, "ESP_GATTS_DISCONNECT_EVT, reason = 0x%x", param->disconnect.reason);
+        btCommandReady = 0;
         esp_ble_gap_start_advertising(&adv_params);
         break;
     case ESP_GATTS_CREAT_ATTR_TAB_EVT:{

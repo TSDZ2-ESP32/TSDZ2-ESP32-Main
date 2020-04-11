@@ -93,7 +93,7 @@ struct_tsdz_cfg tsdz_cfg = {
     .ui8_walk_assist_level = {20,30,40,48},
 };
 
-uint8_t stm8_fw_version = 255;
+uint8_t stm8_fw_version = -1;
 
 // OEM LCD values
 static uint8_t ui8_oem_wheel_diameter;
