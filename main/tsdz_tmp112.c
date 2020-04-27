@@ -4,6 +4,7 @@
  *  Created on: 13 feb 2020
  *      Author: SO000228
  */
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 
 #include "esp_log.h"
 #include "driver/i2c.h"

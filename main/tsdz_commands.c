@@ -4,6 +4,7 @@
  *  Created on: 24 set 2019
  *      Author: Max
  */
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 
 #include <stdint.h>
 #include <string.h>

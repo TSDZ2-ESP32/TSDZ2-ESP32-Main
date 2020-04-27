@@ -4,7 +4,7 @@
  *  Created on: 10 set 2019
  *      Author: Max
  */
-
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
@@ -14,6 +14,8 @@
 #include "esp_log.h"
 #include "sdkconfig.h"
 #include "esp_app_format.h"
+#include "esp_pm.h"
+#include "esp32/pm.h"
 
 #include "tsdz_uart.h"
 #include "tsdz_nvs.h"
@@ -33,8 +35,18 @@ TaskHandle_t mainTaskHandle = NULL;
 
 void app_main(void)
 {
-	// initialize the UART
-    tsdz_uart_init();
+	/*
+	esp_pm_config_esp32_t pm_config = {
+	   .max_freq_mhz = 80,
+	   .min_freq_mhz = 40,
+	   .light_sleep_enable = false
+	};
+
+	esp_err_t ret;
+	if((ret = esp_pm_configure(&pm_config)) != ESP_OK) {
+		ESP_LOGE(TAG, "esp_pm_configure: %d", ret);
+	}
+	*/
 
     // Init NVS
 	// if OTA_BOOT data is found, start ASAP the STM8 bootloader activation and the OTA process
@@ -42,17 +54,25 @@ void app_main(void)
     if (ota_data != NULL)
     	start_ota_stm8(ota_data);
 
-    tsdz_nvs_read_cfg();
-    ESP_LOGI(TAG, "cfg read done");
-
-    // Set Log level according to NVS configuration
-    setLogLevel();
-
-    tsdz_bt_init();
-    ESP_LOGI(TAG, "bt init done");
+    ESP_LOGI(TAG, "Start normal");
 
     // wait to avoid STM8 bootloader activation
     vTaskDelay(pdMS_TO_TICKS(1000));
+
+    // initialize the UART
+    ESP_LOGI(TAG, "UART init ...");
+    tsdz_uart_init();
+
+    ESP_LOGI(TAG, "Read cfg ...");
+    tsdz_nvs_read_cfg();
+
+    // Set Log level according to NVS configuration
+    setLogLevel();
+    ESP_LOGI(TAG, "Starting...");
+
+
+    tsdz_bt_init();
+    ESP_LOGI(TAG, "bt init done");
 
     tsdz_tmp112_init();
     ESP_LOGI(TAG, "TMP112 init done");

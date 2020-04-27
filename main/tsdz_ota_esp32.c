@@ -4,7 +4,7 @@
  *  Created on: 23 set 2019
  *      Author: Max
  */
-
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 
 #include "tsdz_ota_esp32.h"
 

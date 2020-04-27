@@ -4,6 +4,7 @@
  *  Created on: 28 ott 2019
  *      Author: Max
  */
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

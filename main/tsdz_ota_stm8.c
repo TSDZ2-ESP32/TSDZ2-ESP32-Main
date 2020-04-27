@@ -4,6 +4,7 @@
  *  Created on: 10 apr 2020
  *      Author: Max
  */
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 
 #include <stdio.h>
 #include <string.h>
@@ -13,6 +14,7 @@
 #include "esp_http_client.h"
 #include "esp_log.h"
 #include "tsdz_uart.h"
+#include "tsdz_nvs.h"
 #include "tsdz_bt.h"
 #include "tsdz_utils.h"
 #include "tsdz_wifi.h"
@@ -436,7 +438,7 @@ uint8_t bsl_memWrite(uart_port_t ptrPort, uint8_t uartMode, const uint8_t *image
 	int              lenTx, lenRx, len;                   // frame lengths
 	uint8_t          chk;                                 // frame checksum
 
-	uint8_t ret[3] = {CMD_STM8_OTA_STATUS,2,0};
+	uint8_t ret[3] = {CMD_STM8_OTA_STATUS,3,0};
 
 	numData = addrStop - addrStart+1;
 	// update min/max addresses and number of bytes to write (HB!=0x00) for printout
@@ -739,6 +741,9 @@ static void init_bt() {
 void start_ota_stm8(char* wifiCfg) {
     uint8_t ret[3] = {CMD_STM8_OTA_STATUS,0,0};
 
+    // UART Initialization
+    tsdz_uart_init();
+
     // Send SYNC as soon as possible to STM8 Bootloader
 	// STM8 Bootloader has only 1 sec detection window after boot
 	if (!bsl_sync(CT_UART)) {
@@ -746,13 +751,15 @@ void start_ota_stm8(char* wifiCfg) {
 		ret[2] = 0;
 		goto error;
 	}
+	vTaskDelay(pdMS_TO_TICKS(1000));
+
+	// Set Log level according to NVS configuration
+	tsdz_nvs_read_cfg();
+	setLogLevel();
 
 	ESP_LOGI(TAG, "STM8 Bootloader Sync Done!");
     esp_err_t err;
     
-    // Set Log level according to NVS configuration
-    setLogLevel();
-
     char *ssid;
     char *pwd;
     int port;
@@ -763,9 +770,9 @@ void start_ota_stm8(char* wifiCfg) {
 	ssid = strsep(&wifiCfg, "|");
 	pwd  = strsep(&wifiCfg, "|");
 	port = atoi(strsep(&wifiCfg, "|"));
-    snprintf(url, 32, "http://%s:%d", gwAddress, port);
-    ESP_LOGI(TAG, "ota_esp32_start: ssid:%s pwd:%s port:%d url:%s", ssid, pwd, port, url);
+    ESP_LOGI(TAG, "ota_esp32_start: ssid:%s pwd:%s port:%d", ssid, pwd, port);
 
+    vTaskDelay(pdMS_TO_TICKS(1000));
 	if (ssid == NULL || pwd == NULL || port == 0) {
 		ESP_LOGE(TAG, "start_ota_stm8 - Command parameters Error");
 		ret[2] = 1;
@@ -775,7 +782,10 @@ void start_ota_stm8(char* wifiCfg) {
 	// connect to the Phone Access Point
     wifi_init_sta(ssid, pwd);
     ESP_LOGI(TAG, "WiFi started");
-    
+
+    snprintf(url, 32, "http://%s:%d", gwAddress, port);
+    ESP_LOGI(TAG, "ota_esp32_start: url:%s", url);
+
     // Allocate memory for Firmware Image
     char* firmwareImage = malloc(MAX_FW_SIZE);
     if (firmwareImage == NULL) {
@@ -783,7 +793,6 @@ void start_ota_stm8(char* wifiCfg) {
 		ret[2] = 2;
 		goto error;	
     }
-    
     
     // connect to url
     esp_http_client_config_t config = {
@@ -836,7 +845,6 @@ void start_ota_stm8(char* wifiCfg) {
 	init_bt();
     
     ret[1] = 1;
-    ret[2] = 1;
 	ESP_LOGI(TAG, "Sending end OTA Status, Phase 1 OK");
 	tsdz_bt_notify_command(ret, 3);
 
@@ -884,8 +892,7 @@ void start_ota_stm8(char* wifiCfg) {
 	}
     ESP_LOGI(TAG, "STM8 Routintes send done");
 
-    ret[1] = 1;
-    ret[2] = 2;
+    ret[1] = 2;
 	tsdz_bt_notify_command(ret, 3);
 
     // Write new firmware to STM8 memory
@@ -912,7 +919,9 @@ void start_ota_stm8(char* wifiCfg) {
 	esp_restart();
 	
   error:
-	ret[1] = 3;
+    // init BT if not already done
+	init_bt();
+	ret[1] = 4;
 	tsdz_bt_notify_command(ret, 3);
 	ESP_LOGI(TAG, "Reboot in 1 sec.");
 	vTaskDelay(pdMS_TO_TICKS(1000));

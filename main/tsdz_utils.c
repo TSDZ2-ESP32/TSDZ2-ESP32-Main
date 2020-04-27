@@ -4,6 +4,7 @@
  *  Created on: 19 set 2019
  *      Author: Max
  */
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 
 #include <stdint.h>
 #include "tsdz_data.h"

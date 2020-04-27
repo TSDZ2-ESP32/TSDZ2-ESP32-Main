@@ -28,12 +28,12 @@
 
 #define CMD_ESP_OTA_STATUS          0x05
 // Notification for STM8 OTA status progress
-// total 3 bytes CMD_STM8_OTA_STATUS, Type, Value
-// Type:  0=OTA Executed, 1=OTA Phase, 2= STM8 program progress, 3+ Error
-// Value: Type=0: N.A.)
-//        Type=1: 1=FW Download completed, 2=RAM routines upload completed
-//		  Type=2: write progress in %
-//        Type=3: Error code (verify in source code the cause)
+// total 3 bytes CMD_STM8_OTA_STATUS, Status, Value
+// Status:  0=OTA Completed,
+//          1=FW Download completed,
+//          2=RAM routines upload completed,
+//          3=Program progress % (value contains % progress)]
+//          4=Error (value contains error code)
 #define CMD_STM8_OTA_STATUS         0x06
 
 #define CMD_CADENCE_CALIBRATION     0x07

@@ -4,6 +4,7 @@
  *  Created on: 2 set 2019
  *      Author: Max
  */
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 
 #include <stdio.h>
 #include <stddef.h>
@@ -76,6 +77,10 @@ void tsdz_uart_init(void) {
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "uart_driver_install LCD_UART error=%d", err);
     }
+    err = gpio_set_pull_mode(LCD_TX_PIN, GPIO_FLOATING);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "gpio_set_pull_mode LCD_TX_PIN error=%d", err);
+    }
 
     err = uart_param_config(CT_UART, &uart_config);
     if (err != ESP_OK) {
@@ -85,9 +90,14 @@ void tsdz_uart_init(void) {
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "uart_set_pin CT_UART error=%d", err);
     }
+    gpio_pullup_en(CT_TX_PIN);
     err = uart_driver_install(CT_UART, 256, 256, 0, NULL, 0);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "uart_driver_install CT_UART error=%d", err);
+    }
+    err = gpio_set_pull_mode(CT_TX_PIN, GPIO_FLOATING);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "gpio_set_pull_mode CT_TX_PIN error=%d", err);
     }
 }
 
@@ -146,12 +156,10 @@ bool lcdMessageReceived(void) {
                     lcd_state_machine = 0;
                     lcd_rx_counter = 0;
                     if (checkCRC(lcd_recived_msg, LCD_OEM_MSG_BYTES)) {
-                        ESP_LOGI(TAG, "lcdMessageReceived: %s", bytesToHex(lcd_recived_msg,LCD_OEM_MSG_BYTES));
-                        //ESP_LOGI(TAG, "LCD Message Received");
+                        ESP_LOGD(TAG, "LCD Received: %s", bytesToHex(lcd_recived_msg,LCD_OEM_MSG_BYTES));
                         return true;
                     } else
-                        ESP_LOGI(TAG, "lcdMessageReceived: %s", bytesToHex(lcd_recived_msg,LCD_OEM_MSG_BYTES));
-                        ESP_LOGE(TAG,"LCD-CRC-ERROR");
+                        ESP_LOGW(TAG,"LCD-CRC-ERROR: %s", bytesToHex(lcd_recived_msg,LCD_OEM_MSG_BYTES));
                 }
                 break;
             }
@@ -188,11 +196,10 @@ bool ctMessageReceived(void) {
                     ct_state_machine = 0;
                     ct_rx_counter = 0;
                     if (checkCRC16(ct_received_msg, CT_OS_MSG_BYTES)) {
-                        //ESP_LOGI(TAG, "ctMessageReceived: %s", bytesToHex(ct_received_msg,CT_OS_MSG_BYTES));
-                        ESP_LOGI(TAG, "CT Message Received");
+                        ESP_LOGD(TAG, "CT Received: %s", bytesToHex(ct_received_msg,CT_OS_MSG_BYTES));
                         return true;
                     } else
-                        ESP_LOGE(TAG,"CONTROLLER-CRC-ERROR %s", bytesToHex(ct_received_msg,CT_OS_MSG_BYTES));
+                        ESP_LOGW(TAG,"CONTROLLER-CRC-ERROR %s", bytesToHex(ct_received_msg,CT_OS_MSG_BYTES));
                 }
                 break;
             }

@@ -4,6 +4,8 @@
  *  Created on: 10 apr 2020
  *      Author: Max
  */
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
+
 #include <stdio.h>
 #include <string.h>
 
@@ -77,6 +79,10 @@ void wifi_init_sta(char* ssid, char* pwd) {
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config) );
+
+    ESP_LOGI(TAG, "Starting wifi ...");
+    vTaskDelay(pdMS_TO_TICKS(100));
+
     ESP_ERROR_CHECK(esp_wifi_start() );
 
     ESP_LOGI(TAG, "connect to ap SSID:%s password:%s",
