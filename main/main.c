@@ -59,17 +59,14 @@ void app_main(void)
     // wait to avoid STM8 bootloader activation
     vTaskDelay(pdMS_TO_TICKS(1000));
 
+    // Read cfg from NVS and set log level according to NVS configured parameter
+    ESP_LOGI(TAG, "Read cfg ...");
+    tsdz_nvs_read_cfg();
+    setLogLevel();
+
     // initialize the UART
     ESP_LOGI(TAG, "UART init ...");
     tsdz_uart_init();
-
-    ESP_LOGI(TAG, "Read cfg ...");
-    tsdz_nvs_read_cfg();
-
-    // Set Log level according to NVS configuration
-    setLogLevel();
-    ESP_LOGI(TAG, "Starting...");
-
 
     tsdz_bt_init();
     ESP_LOGI(TAG, "bt init done");

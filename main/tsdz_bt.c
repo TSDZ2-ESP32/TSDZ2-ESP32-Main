@@ -26,11 +26,11 @@
 
 static const char *TAG = "tsdz_bt";
 
-#define PROFILE_NUM                 1
-#define PROFILE_APP_IDX             0
+#define PROFILE_NUM                 2
+#define TSDZ_PROFILE                0
+#define CYCLING_POWER_PROFILE       1
 #define ESP_APP_ID                  0x55
 #define SAMPLE_DEVICE_NAME          "TSDZ_ESP32"
-#define SVC_INST_ID                 0
 
 /* The max length of characteristic value. When the GATT client performs a write or prepare write operation,
  *  the data length must be less than GATTS_DEMO_CHAR_VAL_LEN_MAX.
@@ -44,9 +44,10 @@ static const char *TAG = "tsdz_bt";
 
 
 static uint8_t adv_config_done       = 0;
-static uint16_t conn_id              = 0xffff;
+//static uint16_t conn_id              = 0xffff;
 
-uint16_t tsdz_handle_table[HRS_IDX_NB];
+uint16_t tsdz_handle_table[IDX_TSDZ_DB_NUM];
+uint16_t cycling_handle_table[IDX_CYCLING_DB_NUM];
 
 // if set the client is connected and able to receive notification from Command Characteristic
 volatile uint8_t btCommandReady = 0;
@@ -125,29 +126,41 @@ struct gatts_profile_inst {
     esp_bt_uuid_t descr_uuid;
 };
 
-static void gatts_profile_event_handler(esp_gatts_cb_event_t event,
-        esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
+static void gatts_tsdz_profile_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
+static void gatts_cycling_profile_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
 
 /* One gatt-based profile one app_id and one gatts_if, this array will store the gatts_if returned by ESP_GATTS_REG_EVT */
-static struct gatts_profile_inst tsdz_cfg_profile_tab[PROFILE_NUM] = {
-        [PROFILE_APP_IDX] = {
-                .gatts_cb = gatts_profile_event_handler,
-                .gatts_if = ESP_GATT_IF_NONE,       /* Not get the gatt_if, so initial is ESP_GATT_IF_NONE */
-        },
+static struct gatts_profile_inst gatts_profile_tab[PROFILE_NUM] = {
+    [TSDZ_PROFILE] = {
+        .gatts_cb = gatts_tsdz_profile_handler,
+        .gatts_if = ESP_GATT_IF_NONE,       /* Not get the gatt_if, so initial is ESP_GATT_IF_NONE */
+        .conn_id = 0xffff
+    },
+    [CYCLING_POWER_PROFILE] = {
+        .gatts_cb = gatts_cycling_profile_handler,
+        .gatts_if = ESP_GATT_IF_NONE,       /* Not get the gatt_if, so initial is ESP_GATT_IF_NONE */
+        .conn_id = 0xffff
+    }
 };
 
-/* Service */
+/* TSDZ Service */
 static const uint16_t GATTS_SERVICE_UUID_TSDZ      = 0x00FF;
 static const uint16_t GATTS_CHAR_UUID_TSDZ_STATUS  = 0xFF01;
 static const uint16_t GATTS_CHAR_UUID_TSDZ_DEBUG   = 0xFF02;
 static const uint16_t GATTS_CHAR_UUID_TSDZ_CFG     = 0xFF03;
 static const uint16_t GATTS_CHAR_UUID_TSDZ_COMMAND = 0xFF04;
+/* Cycling Power Service */
+static const uint16_t GATTS_SERVICE_UUID_CYCLING_POWER          = 0x1818;
+static const uint16_t GATTS_CHAR_UUID_SENSOR_LOCATION           = 0x2A5D;
+static const uint16_t GATTS_CHAR_UUID_CYCLING_POWER_FEATURE     = 0x2A65;
+static const uint16_t GATTS_CHAR_UUID_CYCLING_POWER_MEASUREMENT = 0x2A63;
+
+
 
 static const uint16_t primary_service_uuid         = ESP_GATT_UUID_PRI_SERVICE;
 static const uint16_t character_declaration_uuid   = ESP_GATT_UUID_CHAR_DECLARE;
 static const uint16_t character_client_config_uuid = ESP_GATT_UUID_CHAR_CLIENT_CONFIG;
-//static const uint8_t char_prop_read                = ESP_GATT_CHAR_PROP_BIT_READ;
-//static const uint8_t char_prop_write               = ESP_GATT_CHAR_PROP_BIT_WRITE;
+static const uint8_t char_prop_read                = ESP_GATT_CHAR_PROP_BIT_READ;
 static const uint8_t char_prop_write_notify        = ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_NOTIFY;
 //static const uint8_t char_prop_read_write_notify   = ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY;
 //static const uint8_t char_prop_read_notify         = ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY;
@@ -155,7 +168,8 @@ static const uint8_t char_prop_notify              = ESP_GATT_CHAR_PROP_BIT_NOTI
 static const uint8_t char_prop_read_write          = ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_READ;
 
 static const uint8_t tsdz_attr_ccc[2] = {0x00, 0x00};
-
+static const uint8_t null_attr[1] = {0x00};
+static const uint8_t power_feature_attr[4] = {0x00,0x00,0x00,0x00};
 
 
 static char *esp_key_type_to_str(esp_ble_key_type_t key_type)
@@ -247,15 +261,14 @@ static void remove_bonded_devices_except(esp_bd_addr_t keep)
     free(dev_list);
 }
 
-/* Full Database Description - Used to add attributes into the database */
-static const esp_gatts_attr_db_t gatt_db[HRS_IDX_NB] = {
-// Service Declaration
-        [IDX_SVC] =
+/* TSDZ Service Full Database Description  */
+static const esp_gatts_attr_db_t tsdz_gatt_db[IDX_TSDZ_DB_NUM] = {
+        // Service Declaration
+        [IDX_TSDZ_SVC] =
         { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
                 (uint8_t *) &primary_service_uuid, ESP_GATT_PERM_READ,
                 sizeof(uint16_t), sizeof(GATTS_SERVICE_UUID_TSDZ),
                 (uint8_t *) &GATTS_SERVICE_UUID_TSDZ } },
-
         // Characteristic Declaration
         [IDX_CHAR_STATUS] =
         { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
@@ -311,20 +324,17 @@ static const esp_gatts_attr_db_t gatt_db[HRS_IDX_NB] = {
                 (uint8_t *) &GATTS_CHAR_UUID_TSDZ_CFG,
                 ESP_GATT_PERM_WRITE_ENCRYPTED|ESP_GATT_PERM_READ_ENCRYPTED, sizeof(tsdz_cfg),
                 sizeof(tsdz_cfg), (uint8_t *) (&tsdz_cfg) } },
-
         // Characteristic Declaration
         [IDX_CHAR_COMMAND] =
         { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
                 (uint8_t *) &character_declaration_uuid, ESP_GATT_PERM_READ,
                 CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE,
                 (uint8_t *) &char_prop_write_notify } },
-
         // Characteristic Value
         [IDX_CHAR_VAL_COMMAND] =
         { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
                 (uint8_t *) &GATTS_CHAR_UUID_TSDZ_COMMAND,
                 ESP_GATT_PERM_WRITE_ENCRYPTED|ESP_GATT_PERM_READ_ENCRYPTED, 128, 2, (uint8_t *) "A" } },
-
         // Client Characteristic Configuration Descriptor
         [IDX_CHAR_CFG_COMMAND] =
         { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
@@ -332,6 +342,59 @@ static const esp_gatts_attr_db_t gatt_db[HRS_IDX_NB] = {
                         | ESP_GATT_PERM_WRITE_ENCRYPTED, sizeof(uint16_t),
                 sizeof(tsdz_attr_ccc), (uint8_t *) tsdz_attr_ccc } },
 };
+
+/* Cyclcing Power Service Full Database Description  */
+static const esp_gatts_attr_db_t cycling_gatt_db[IDX_CYCLING_DB_NUM] = {
+// Service Declaration
+        [IDX_CYCLING_SVC] =
+        { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+                (uint8_t *) &primary_service_uuid, ESP_GATT_PERM_READ,
+                sizeof(uint16_t), sizeof(GATTS_SERVICE_UUID_CYCLING_POWER),
+                (uint8_t *) &GATTS_SERVICE_UUID_CYCLING_POWER } },
+        // Characteristic Declaration
+        [IDX_CHAR_CYCLING_POWER_MEASUREMENT] =
+        { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+                (uint8_t *) &character_declaration_uuid, ESP_GATT_PERM_READ,
+                CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE,
+                (uint8_t *) &char_prop_notify } },
+        // Characteristic Value
+        [IDX_CHAR_VAL_CYCLING_POWER_MEASUREMENT] =
+        { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+                (uint8_t *) &GATTS_CHAR_UUID_CYCLING_POWER_MEASUREMENT, ESP_GATT_PERM_READ,
+                sizeof(null_attr), sizeof(null_attr),
+                (uint8_t *) (&null_attr)} },
+        // Client Characteristic Configuration Descriptor
+        [IDX_CHAR_CFG_CYCLING_POWER_MEASUREMENT] =
+        { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+                (uint8_t *) &character_client_config_uuid, ESP_GATT_PERM_READ
+                        | ESP_GATT_PERM_WRITE, sizeof(uint16_t),
+                sizeof(tsdz_attr_ccc), (uint8_t *) tsdz_attr_ccc } },
+        // Characteristic Declaration
+        [IDX_CHAR_CYCLING_POWER_FEATURE] =
+        { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+                (uint8_t *) &character_declaration_uuid, ESP_GATT_PERM_READ,
+                CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE,
+                (uint8_t *) &char_prop_read } },
+        // Characteristic Value
+        [IDX_CHAR_VAL_CYCLING_POWER_FEATURE] =
+        { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+                (uint8_t *) &GATTS_CHAR_UUID_CYCLING_POWER_FEATURE, ESP_GATT_PERM_READ,
+                sizeof(power_feature_attr), sizeof(power_feature_attr),
+                (uint8_t *) (&power_feature_attr) } },
+        // Characteristic Declaration
+        [IDX_CHAR_SENSOR_LOCATION] =
+        { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+                (uint8_t *) &character_declaration_uuid, ESP_GATT_PERM_READ,
+                CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE,
+                (uint8_t *) &char_prop_read } },
+        // Characteristic Value
+        [IDX_CHAR_VAL_SENSOR_LOCATION] =
+        { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
+                (uint8_t *) &GATTS_CHAR_UUID_SENSOR_LOCATION, ESP_GATT_PERM_READ,
+                sizeof(null_attr), sizeof(null_attr),
+                (uint8_t *) (&null_attr) } }
+};
+
 
 static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
@@ -585,10 +648,11 @@ void exec_write_event_env(prepare_type_env_t *prepare_write_env, esp_ble_gatts_c
     prepare_write_env->prepare_len = 0;
 }
 
-static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param)
+static void gatts_tsdz_profile_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param)
 {
     switch (event) {
     case ESP_GATTS_REG_EVT:{
+    	ESP_LOGI(TAG, "T ESP_GATTS_REG_EVT");
         esp_err_t ret = esp_ble_gap_set_device_name(SAMPLE_DEVICE_NAME);
         if (ret){
             ESP_LOGE(TAG, "set device name failed, error code = %x", ret);
@@ -597,17 +661,17 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
         if (ret) {
             ESP_LOGE(TAG, "esp_ble_gap_config_local_privacy failed, error code = %x", ret);
         }
-        ret = esp_ble_gatts_create_attr_tab(gatt_db, gatts_if, HRS_IDX_NB, SVC_INST_ID);
+        ret = esp_ble_gatts_create_attr_tab(tsdz_gatt_db, gatts_if, IDX_TSDZ_DB_NUM, TSDZ_PROFILE);
         if (ret){
             ESP_LOGE(TAG, "create attr table failed, error code = %x", ret);
         }
     }
     break;
     case ESP_GATTS_READ_EVT:
-        //ESP_LOGI(TAG, "ESP_GATTS_READ_EVT");
+        ESP_LOGI(TAG, "T ESP_GATTS_READ_EVT");
         break;
     case ESP_GATTS_WRITE_EVT:
-        //ESP_LOGI(TAG, "ESP_GATTS_WRITE_EVT");
+        //ESP_LOGI(TAG, "T ESP_GATTS_WRITE_EVT");
         if (!param->write.is_prep){
             //ESP_LOGI(TAG, "GATT_WRITE_EVT, handle = %d, value len = %d, value :", param->write.handle, param->write.len);
             write_event_env(gatts_if, param);
@@ -617,26 +681,25 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
         }
         break;
     case ESP_GATTS_EXEC_WRITE_EVT:
-        //ESP_LOGI(TAG, "ESP_GATTS_EXEC_WRITE_EVT");
+        ESP_LOGI(TAG, "T ESP_GATTS_EXEC_WRITE_EVT");
         exec_write_event_env(&prepare_write_env, param);
         break;
     case ESP_GATTS_MTU_EVT:
-        ESP_LOGI(TAG, "ESP_GATTS_MTU_EVT, MTU %d", param->mtu.mtu);
+        ESP_LOGI(TAG, "T ESP_GATTS_MTU_EVT, MTU %d", param->mtu.mtu);
         break;
     case ESP_GATTS_CONF_EVT:
-        //ESP_LOGI(TAG, "ESP_GATTS_CONF_EVT, status = %d, attr_handle %d", param->conf.status, param->conf.handle);
+        //ESP_LOGI(TAG, "T ESP_GATTS_CONF_EVT, status = %d, attr_handle %d", param->conf.status, param->conf.handle);
         break;
     case ESP_GATTS_START_EVT:
-        ESP_LOGI(TAG, "SERVICE_START_EVT, status %d, service_handle %d", param->start.status, param->start.service_handle);
+        ESP_LOGI(TAG, "T SERVICE_START_EVT, status %d, service_handle %d", param->start.status, param->start.service_handle);
         break;
     case ESP_GATTS_CONNECT_EVT:
-    	btCommandReady = 0;
-        ESP_LOGI(TAG, "ESP_GATTS_CONNECT_EVT, conn_id = %d", param->connect.conn_id);
+        ESP_LOGI(TAG, "T ESP_GATTS_CONNECT_EVT, conn_id = %d", param->connect.conn_id);
 
         /* start security connect with peer device when receive the connect event sent by the master */
         esp_ble_set_encryption(param->connect.remote_bda, ESP_BLE_SEC_ENCRYPT_MITM);
 
-        conn_id = param->connect.conn_id;
+        gatts_profile_tab[TSDZ_PROFILE].conn_id = param->connect.conn_id;
         //esp_log_buffer_hex(TAG, param->connect.remote_bda, 6);
         esp_ble_conn_update_params_t conn_params = {0};
         memcpy(conn_params.bda, param->connect.remote_bda, sizeof(esp_bd_addr_t));
@@ -649,23 +712,85 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
         esp_ble_gap_update_conn_params(&conn_params);
         break;
     case ESP_GATTS_DISCONNECT_EVT:
-        conn_id = 0xffff;
-        ESP_LOGI(TAG, "ESP_GATTS_DISCONNECT_EVT, reason = 0x%x", param->disconnect.reason);
-        btCommandReady = 0;
+    	gatts_profile_tab[TSDZ_PROFILE].conn_id = 0xffff;
+        ESP_LOGI(TAG, "T ESP_GATTS_DISCONNECT_EVT, reason = 0x%x", param->disconnect.reason);
         esp_ble_gap_start_advertising(&adv_params);
         break;
     case ESP_GATTS_CREAT_ATTR_TAB_EVT:{
         if (param->add_attr_tab.status != ESP_GATT_OK){
-            ESP_LOGE(TAG, "create attribute table failed, error code=0x%x", param->add_attr_tab.status);
+            ESP_LOGE(TAG, "T create attribute table failed, error code=0x%x", param->add_attr_tab.status);
         }
-        else if (param->add_attr_tab.num_handle != HRS_IDX_NB){
-            ESP_LOGE(TAG, "create attribute table abnormally, num_handle (%d) \
-                        doesn't equal to HRS_IDX_NB(%d)", param->add_attr_tab.num_handle, HRS_IDX_NB);
+        else if (param->add_attr_tab.num_handle != IDX_TSDZ_DB_NUM){
+            ESP_LOGE(TAG, "T create attribute table abnormally, num_handle (%d) \
+                        doesn't equal to IDX_TSDZ_NUM(%d)", param->add_attr_tab.num_handle, IDX_TSDZ_DB_NUM);
         }
         else {
-            ESP_LOGI(TAG, "create attribute table successfully, the number handle = %d\n",param->add_attr_tab.num_handle);
+            ESP_LOGI(TAG, "T create attribute table successfully, the number handle = %d\n",param->add_attr_tab.num_handle);
             memcpy(tsdz_handle_table, param->add_attr_tab.handles, sizeof(tsdz_handle_table));
-            esp_ble_gatts_start_service(tsdz_handle_table[IDX_SVC]);
+            esp_ble_gatts_start_service(tsdz_handle_table[IDX_TSDZ_SVC]);
+        }
+        break;
+    }
+    case ESP_GATTS_STOP_EVT:
+    case ESP_GATTS_OPEN_EVT:
+    case ESP_GATTS_CANCEL_OPEN_EVT:
+    case ESP_GATTS_CLOSE_EVT:
+    case ESP_GATTS_LISTEN_EVT:
+    case ESP_GATTS_CONGEST_EVT:
+    case ESP_GATTS_UNREG_EVT:
+    case ESP_GATTS_DELETE_EVT:
+    default:
+        break;
+    }
+}
+
+static void gatts_cycling_profile_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param)
+{
+    switch (event) {
+    case ESP_GATTS_REG_EVT:{
+    	ESP_LOGI(TAG, "C ESP_GATTS_REG_EVT");
+        esp_err_t ret = esp_ble_gatts_create_attr_tab(cycling_gatt_db, gatts_if, IDX_CYCLING_DB_NUM, CYCLING_POWER_PROFILE);
+        if (ret){
+            ESP_LOGE(TAG, "create attr table failed, error code = %x", ret);
+        }
+    }
+    break;
+    case ESP_GATTS_READ_EVT:
+        ESP_LOGI(TAG, "C ESP_GATTS_READ_EVT");
+        break;
+    case ESP_GATTS_WRITE_EVT:
+        //ESP_LOGI(TAG, "C ESP_GATTS_WRITE_EVT");
+        break;
+    case ESP_GATTS_EXEC_WRITE_EVT:
+        ESP_LOGI(TAG, "C ESP_GATTS_EXEC_WRITE_EVT");
+        break;
+    case ESP_GATTS_MTU_EVT:
+        ESP_LOGI(TAG, "C ESP_GATTS_MTU_EVT, MTU %d", param->mtu.mtu);
+        break;
+    case ESP_GATTS_CONF_EVT:
+        //ESP_LOGI(TAG, "ESP_GATTS_CONF_EVT, status = %d, attr_handle %d", param->conf.status, param->conf.handle);
+        break;
+    case ESP_GATTS_START_EVT:
+        ESP_LOGI(TAG, "C SERVICE_START_EVT, status %d, service_handle %d", param->start.status, param->start.service_handle);
+        break;
+    case ESP_GATTS_CONNECT_EVT:
+        ESP_LOGI(TAG, "C ESP_GATTS_CONNECT_EVT, conn_id = %d", param->connect.conn_id);
+        gatts_profile_tab[CYCLING_POWER_PROFILE].conn_id = param->connect.conn_id;
+        break;
+    case ESP_GATTS_DISCONNECT_EVT:
+        ESP_LOGI(TAG, "C ESP_GATTS_DISCONNECT_EVT");
+    	gatts_profile_tab[CYCLING_POWER_PROFILE].conn_id = 0xffff;
+        break;
+    case ESP_GATTS_CREAT_ATTR_TAB_EVT:{
+        if (param->add_attr_tab.status != ESP_GATT_OK){
+            ESP_LOGE(TAG, "C create attribute table failed, error code=0x%x", param->add_attr_tab.status);
+        } else if (param->add_attr_tab.num_handle != IDX_CYCLING_DB_NUM){
+            ESP_LOGE(TAG, "C create attribute table abnormally, num_handle (%d) \
+                        doesn't equal to IDX_TSDZ_NUM(%d)", param->add_attr_tab.num_handle, IDX_CYCLING_DB_NUM);
+        } else {
+            ESP_LOGI(TAG, "C create attribute table successfully, the number handle = %d\n",param->add_attr_tab.num_handle);
+            memcpy(cycling_handle_table, param->add_attr_tab.handles, sizeof(cycling_handle_table));
+            esp_ble_gatts_start_service(cycling_handle_table[IDX_CYCLING_SVC]);
         }
         break;
     }
@@ -687,27 +812,28 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
 {
 
     /* If event is register event, store the gatts_if for each profile */
-    if (event == ESP_GATTS_REG_EVT) {
-        if (param->reg.status == ESP_GATT_OK) {
-            tsdz_cfg_profile_tab[PROFILE_APP_IDX].gatts_if = gatts_if;
-        } else {
-            ESP_LOGE(TAG, "reg app failed, app_id %04x, status %d",
-                    param->reg.app_id,
-                    param->reg.status);
-            return;
-        }
-    }
-    do {
-        int idx;
-        for (idx = 0; idx < PROFILE_NUM; idx++) {
-            /* ESP_GATT_IF_NONE, not specify a certain gatt_if, need to call every profile cb function */
-            if (gatts_if == ESP_GATT_IF_NONE || gatts_if == tsdz_cfg_profile_tab[idx].gatts_if) {
-                if (tsdz_cfg_profile_tab[idx].gatts_cb) {
-                    tsdz_cfg_profile_tab[idx].gatts_cb(event, gatts_if, param);
-                }
-            }
-        }
-    } while (0);
+	if (event == ESP_GATTS_REG_EVT) {
+		if (param->reg.status == ESP_GATT_OK) {
+			gatts_profile_tab[param->reg.app_id].gatts_if = gatts_if;
+		} else {
+			ESP_LOGI(TAG, "Reg app failed, app_id %04x, status %d\n",
+					param->reg.app_id,
+					param->reg.status);
+			return;
+		}
+	}
+
+	do {
+		int idx;
+		for (idx = 0; idx < PROFILE_NUM; idx++) {
+			if (gatts_if == ESP_GATT_IF_NONE || /* ESP_GATT_IF_NONE, not specify a certain gatt_if, need to call every profile cb function */
+					gatts_if == gatts_profile_tab[idx].gatts_if) {
+				if (gatts_profile_tab[idx].gatts_cb) {
+					gatts_profile_tab[idx].gatts_cb(event, gatts_if, param);
+				}
+			}
+		}
+	} while (0);
 }
 
 void tsdz_bt_init(void)
@@ -756,9 +882,15 @@ void tsdz_bt_init(void)
         return;
     }
 
-    ret = esp_ble_gatts_app_register(ESP_APP_ID);
+    ret = esp_ble_gatts_app_register(TSDZ_PROFILE);
     if (ret){
-        ESP_LOGE(TAG, "gatts app register error, error code = %x", ret);
+        ESP_LOGE(TAG, "T gatts app register error, error code = %x", ret);
+        return;
+    }
+
+    ret = esp_ble_gatts_app_register(CYCLING_POWER_PROFILE);
+    if (ret){
+        ESP_LOGE(TAG, "C gatts app register error, error code = %x", ret);
         return;
     }
 
@@ -799,7 +931,11 @@ void tsdz_bt_init(void)
 void tsdz_bt_stop(void)
 {
     esp_err_t ret;
-    ret = esp_ble_gatts_app_unregister(tsdz_cfg_profile_tab[PROFILE_APP_IDX].gatts_if);
+    ret = esp_ble_gatts_app_unregister(gatts_profile_tab[TSDZ_PROFILE].gatts_if);
+    if (ret){
+        ESP_LOGE(TAG, "esp_ble_gatts_app_unregister error, error code = %x", ret);
+    }
+    ret = esp_ble_gatts_app_unregister(gatts_profile_tab[CYCLING_POWER_PROFILE].gatts_if);
     if (ret){
         ESP_LOGE(TAG, "esp_ble_gatts_app_unregister error, error code = %x", ret);
     }
@@ -822,30 +958,24 @@ void tsdz_bt_stop(void)
 }
 
 void tsdz_bt_update(void) {
-    esp_err_t set_attr_ret = ESP_OK;
-    set_attr_ret = esp_ble_gatts_set_attr_value(tsdz_handle_table[IDX_CHAR_VAL_CONFIG], sizeof(tsdz_cfg), (uint8_t*)(&tsdz_cfg));
-    set_attr_ret |= esp_ble_gatts_set_attr_value(tsdz_handle_table[IDX_CHAR_VAL_STATUS], sizeof(tsdz_status), (uint8_t*)(&tsdz_status));
-    set_attr_ret |= esp_ble_gatts_set_attr_value(tsdz_handle_table[IDX_CHAR_VAL_DEBUG], sizeof(tsdz_debug), (uint8_t *)(&tsdz_debug));
-    if (set_attr_ret){
-        ESP_LOGE(TAG, "tsdz_bt_update, set attr failed, error code = %x", set_attr_ret);
-    }
-    if (conn_id != 0xffff) {
+	esp_err_t ret;
+    if (gatts_profile_tab[TSDZ_PROFILE].conn_id != 0xffff) {
         // Client Charactersitic Configuration bit 0 set -> Notification enabled
         uint16_t l;
         const uint8_t* value;
-        esp_err_t ret = esp_ble_gatts_get_attr_value(tsdz_handle_table[IDX_CHAR_CFG_STATUS], &l, &value);
+        ret = esp_ble_gatts_get_attr_value(tsdz_handle_table[IDX_CHAR_CFG_STATUS], &l, &value);
         if (ret==ESP_OK  && l==2 && (value[0]&0x01))
-            ret = esp_ble_gatts_send_indicate(tsdz_cfg_profile_tab[PROFILE_APP_IDX].gatts_if, conn_id, tsdz_handle_table[IDX_CHAR_VAL_STATUS],
+            ret = esp_ble_gatts_send_indicate(gatts_profile_tab[TSDZ_PROFILE].gatts_if, gatts_profile_tab[TSDZ_PROFILE].conn_id, tsdz_handle_table[IDX_CHAR_VAL_STATUS],
                     sizeof(tsdz_status), (uint8_t *)(&tsdz_status), false);
         if (ret){
-            ESP_LOGE(TAG, "tsdz_bt_update, tsdz_status notifiation failed, error code = %x", set_attr_ret);
+            ESP_LOGE(TAG, "tsdz_bt_update, tsdz_status notifiation failed, error code = %x", ret);
         }
         ret = esp_ble_gatts_get_attr_value(tsdz_handle_table[IDX_CHAR_CFG_DEBUG], &l, &value);
         if (ret==ESP_OK  && l==2 && (value[0]&0x01))
-            ret |= esp_ble_gatts_send_indicate(tsdz_cfg_profile_tab[PROFILE_APP_IDX].gatts_if, conn_id, tsdz_handle_table[IDX_CHAR_VAL_DEBUG],
+            ret |= esp_ble_gatts_send_indicate(gatts_profile_tab[TSDZ_PROFILE].gatts_if, gatts_profile_tab[TSDZ_PROFILE].conn_id, tsdz_handle_table[IDX_CHAR_VAL_DEBUG],
                 sizeof(tsdz_debug), (uint8_t *)(&tsdz_debug), false);
         if (ret){
-            ESP_LOGE(TAG, "tsdz_bt_update, tsdz_debug notification failed, error code = %x", set_attr_ret);
+            ESP_LOGE(TAG, "tsdz_bt_update, tsdz_debug notification failed, error code = %x", ret);
         }
     }
 }
@@ -853,12 +983,12 @@ void tsdz_bt_update(void) {
 void tsdz_bt_notify_command(uint8_t* data, uint8_t length) {
     // Client Charactersitic Configuration bit 0 set -> Notification enabled
 
-    if (conn_id != 0xffff) {
+    if (gatts_profile_tab[TSDZ_PROFILE].conn_id != 0xffff) {
         uint16_t l;
         const uint8_t* value;
         esp_err_t ret = esp_ble_gatts_get_attr_value(tsdz_handle_table[IDX_CHAR_CFG_COMMAND], &l, &value);
         if (ret == ESP_OK  && l==2 && (value[0]&0x01))
-            ret = esp_ble_gatts_send_indicate(tsdz_cfg_profile_tab[PROFILE_APP_IDX].gatts_if, conn_id, tsdz_handle_table[IDX_CHAR_VAL_COMMAND],
+            ret = esp_ble_gatts_send_indicate(gatts_profile_tab[TSDZ_PROFILE].gatts_if, gatts_profile_tab[TSDZ_PROFILE].conn_id, tsdz_handle_table[IDX_CHAR_VAL_COMMAND],
                 length, data, false);
         if (ret){
             ESP_LOGE(TAG, "tsdz_bt_notify_command, notification failed, error code = %x", ret);
