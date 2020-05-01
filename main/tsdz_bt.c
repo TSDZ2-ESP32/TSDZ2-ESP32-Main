@@ -23,6 +23,7 @@
 #include "tsdz_data.h"
 #include "tsdz_uart.h"
 #include "tsdz_commands.h"
+#include "tsdz_data.h"
 
 static const char *TAG = "tsdz_bt";
 
@@ -169,7 +170,7 @@ static const uint8_t char_prop_read_write          = ESP_GATT_CHAR_PROP_BIT_WRIT
 
 static const uint8_t tsdz_attr_ccc[2] = {0x00, 0x00};
 static const uint8_t null_attr[1] = {0x00};
-static const uint8_t power_feature_attr[4] = {0x00,0x00,0x00,0x00};
+static const uint8_t power_feature_attr[4] = {0x8C,0x00,0x00,0x00};
 
 
 static char *esp_key_type_to_str(esp_ble_key_type_t key_type)
@@ -486,7 +487,6 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
             ESP_LOGI(TAG, "auth mode = %s",esp_auth_req_to_str(param->ble_security.auth_cmpl.auth_mode));
         }
         remove_bonded_devices_except(bd_addr);
-        //show_bonded_devices();
         break;
     }
     case ESP_GAP_BLE_REMOVE_BOND_DEV_COMPLETE_EVT: {
@@ -976,6 +976,84 @@ void tsdz_bt_update(void) {
                 sizeof(tsdz_debug), (uint8_t *)(&tsdz_debug), false);
         if (ret){
             ESP_LOGE(TAG, "tsdz_bt_update, tsdz_debug notification failed, error code = %x", ret);
+        }
+    }
+}
+
+static uint8_t cyclingPowerMsg[16] = {0x30,0x08,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+
+void cycling_bt_update(void) {
+	static uint32_t last_wheel_rev = 0;
+	static uint16_t last_wheel_time = 0;
+	static uint16_t last_crank_rev = 0;
+	static uint16_t last_crank_time = 0;
+    esp_err_t ret;
+    if (gatts_profile_tab[CYCLING_POWER_PROFILE].conn_id != 0xffff) {
+        // Client Charactersitic Configuration bit 0 set -> Notification enabled
+        uint16_t l;
+        const uint8_t* value;
+        ret = esp_ble_gatts_get_attr_value(cycling_handle_table[IDX_CHAR_CFG_CYCLING_POWER_MEASUREMENT], &l, &value);
+        if (ret==ESP_OK && l==2 && (value[0]&0x01)) {
+            uint32_t tmp;
+            // intantaneus Power (W)
+            tmp = tsdz_status.ui16_battery_voltage_x1000 * tsdz_status.ui8_battery_current_x10 / 10000;
+            ESP_LOGI(TAG, "power:%d", tmp&0xffff);
+            cyclingPowerMsg[2] = (tmp & 0xff);
+            cyclingPowerMsg[3] = ((tmp>>8) & 0xff);
+
+            // Wheel revolutions
+            ESP_LOGI(TAG, "wheel_revolutions:%u", wheel_revolutions);
+            cyclingPowerMsg[4] = (wheel_revolutions & 0xff);
+            cyclingPowerMsg[5] = ((wheel_revolutions>>8) & 0xff);
+            cyclingPowerMsg[6] = ((wheel_revolutions>>16) & 0xff);
+            cyclingPowerMsg[7] = ((wheel_revolutions>>24) & 0xff);
+
+            // last Wheel revolution time (sec/2048)
+            if (tsdz_status.ui16_wheel_speed_x10 > 0) {
+            	if ((wheel_revolutions - last_wheel_rev) > 0) {
+					tmp = (wheel_revolutions - last_wheel_rev) * (uint32_t)tsdz_cfg.ui16_wheel_perimeter * 2048L
+							 / ((uint32_t)tsdz_status.ui16_wheel_speed_x10 * 1000L / 36L);
+					tmp += last_wheel_time;
+					last_wheel_time = tmp & 0xffff;
+            	}
+            } else
+            	last_wheel_time = 0;
+            last_wheel_rev = wheel_revolutions;
+            ESP_LOGI(TAG, "wheel time:%u", last_wheel_time);
+            cyclingPowerMsg[8] = (last_wheel_time & 0xff);
+            cyclingPowerMsg[9] = ((last_wheel_time>>8) & 0xff);
+
+            // Crank revolutions
+            ESP_LOGI(TAG, "crank_revolutions:%u", crank_revolutions);
+            cyclingPowerMsg[10] = (crank_revolutions & 0xff);
+            cyclingPowerMsg[11] = ((crank_revolutions>>8) & 0xff);
+
+            // Crank revolution time (sec/1024) (60*1024/rmp)
+            if (tsdz_status.ui8_pedal_cadence_RPM > 0) {
+            	if ((crank_revolutions - last_crank_rev) > 0) {
+					// N. revs * 60/rpm * 1024
+					tmp = (crank_revolutions - last_crank_rev) * 61440 / tsdz_status.ui8_pedal_cadence_RPM;
+					tmp += last_crank_time;
+					last_crank_time = tmp & 0xffff;
+            	}
+            } else
+            	last_crank_time = 0;
+            last_crank_rev = crank_revolutions;
+            ESP_LOGI(TAG, "crank time:%d", last_crank_time);
+            cyclingPowerMsg[12] = (last_crank_time & 0xff);
+            cyclingPowerMsg[13] = ((last_crank_time>>8) & 0xff);
+
+            // Accumulated Energy (KJ = Wh * 3600 / 1000)
+            tmp = (uint32_t)tsdz_status.ui16_battery_wh * 36L / 10L;
+            cyclingPowerMsg[14] = (tmp & 0xff);
+            cyclingPowerMsg[15] = ((tmp>>8) & 0xff);
+
+            ret = esp_ble_gatts_send_indicate(gatts_profile_tab[CYCLING_POWER_PROFILE].gatts_if, gatts_profile_tab[CYCLING_POWER_PROFILE].conn_id, cycling_handle_table[IDX_CHAR_VAL_CYCLING_POWER_MEASUREMENT],
+                    16, cyclingPowerMsg, false);
+            if (ret)
+                ESP_LOGE(TAG, "cycling_bt_update, cycling_power notifiation failed, error code = %x", ret);
+            //else
+            	//ESP_LOGI(TAG, "cycling_bt_update done");
         }
     }
 }

@@ -179,7 +179,7 @@ bool ctMessageReceived(void) {
         if (received > 0)
             switch (ct_state_machine) {
             case 0:
-                if (byte_received != CT_MSG_ID) {// see if we get start package byte
+                if (byte_received != CT_MSG_ID) {
                     break;
                 }
                 ct_rx_counter = 1;

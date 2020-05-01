@@ -96,22 +96,25 @@ struct_tsdz_cfg tsdz_cfg = {
 
 uint8_t stm8_fw_version = -1;
 
-// OEM LCD values
+// local OEM LCD values
 static uint8_t ui8_oem_wheel_diameter;
 static uint8_t ui8_oem_lights;
 static uint8_t ui8_oem_wheel_max_speed;
 
-// global system variables
+// local wh calculation variables
 static uint16_t       ui16_battery_power_filtered_x10 = 0;
 static uint32_t       ui32_wh_sum_x10 = 0;
-uint32_t              ui32_wh_x10 = 0;
-uint32_t              ui32_wh_x10_offset = 0;
-
-volatile uint8_t ui8_cadence_sensor_calibration = 0;
 
 static uint8_t ui8_message_ID = 0;
 static uint8_t ui8_BatteryLevel = 0;
 static uint8_t ui8_BatteryError = 0;
+
+// global system variables
+uint32_t              ui32_wh_x10 = 0;
+uint32_t              ui32_wh_x10_offset = 0;
+uint32_t              wheel_revolutions;
+uint16_t              crank_revolutions;
+volatile uint8_t ui8_cadence_sensor_calibration = 0;
 
 
 void update_battery();
@@ -365,15 +368,21 @@ void processControllerMessage(const uint8_t ct_os_message[]) {
         }
     }
 
+    // Wheel revolutions
+    wheel_revolutions = (((uint32_t) ct_os_message[20]) << 16) + (((uint32_t) ct_os_message[19]) << 8) + ((uint32_t) ct_os_message[18]);
+
     // pedal torque x100
-    tsdz_debug.ui16_pedal_torque_x100 = (((uint16_t) ct_os_message[19]) << 8) + ((uint16_t) ct_os_message[18]);
+    tsdz_debug.ui16_pedal_torque_x100 = (((uint16_t) ct_os_message[22]) << 8) + ((uint16_t) ct_os_message[21]);
+
+    // crank revolutions
+    crank_revolutions = (((uint16_t) ct_os_message[24]) << 8) + ((uint16_t) ct_os_message[23]);
 
     // human power x10
     // calculated from torque and cadence
     tsdz_status.ui16_pedal_power_x10 = ((uint32_t)tsdz_debug.ui16_pedal_torque_x100 * tsdz_status.ui8_pedal_cadence_RPM) / 96;
 
     // cadence sensor pulse high percentage
-    tsdz_debug.ui16_cadence_sensor_pulse_high_percentage_x10 = (((uint16_t) ct_os_message[21]) << 8) + ((uint16_t) ct_os_message[20]);
+    tsdz_debug.ui16_cadence_sensor_pulse_high_percentage_x10 = (((uint16_t) ct_os_message[26]) << 8) + ((uint16_t) ct_os_message[25]);
 }
 
 void getControllerMessage(uint8_t lcd_os_message[]) {

@@ -163,6 +163,8 @@ extern uint8_t                  stm8_fw_version;
 extern uint32_t                 ui32_wh_x10_offset;
 extern uint32_t                 ui32_wh_x10;
 extern volatile uint8_t         ui8_cadence_sensor_calibration;
+extern uint32_t                 wheel_revolutions;
+extern uint16_t                 crank_revolutions;
 
 
 void tsdz_data_update();

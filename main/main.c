@@ -87,10 +87,11 @@ void mainTask(void * pvParameters) {
     const TickType_t delay10ms = pdMS_TO_TICKS(10);
 
     // offset the periodic calls to avoid to call all the task on the same cycle
-    static uint8_t bt_task_count   = 0;
+    static uint8_t tsdz_bt_task_count   = 0;
     static uint8_t data_task_count = 1;
     static uint8_t motor_temp_task_count = 2;
     static uint8_t pcb_temp_task_count = 3;
+    static uint8_t cycling_power_bt_task_count = 4;
 
     ESP_LOGI(TAG, "Main task started");
 
@@ -103,13 +104,6 @@ void mainTask(void * pvParameters) {
         // uart send/receive task
         // run every 10msec
         tsdz_uart_task();
-
-        // BT notification task
-        // run every esp32_cfg.bt_update_delay * 10ms (default 250 ms or 4 notifications/sec)
-        if (++bt_task_count >= (esp32_cfg.bt_update_delay)) {
-            tsdz_bt_update();
-            bt_task_count = 0;
-        }
 
         // data calculation task (battery Wh consumption)
         // run every 100ms (10 * 10ms)
@@ -135,6 +129,19 @@ void mainTask(void * pvParameters) {
         if (++pcb_temp_task_count >= 100) {
             tsdz_tmp112_read();
             pcb_temp_task_count = 0;
+        }
+
+        // TSDZ BT Service notification task
+        // run every esp32_cfg.bt_update_delay * 10ms (default 250 ms or 4 notifications/sec)
+        if (++tsdz_bt_task_count >= (esp32_cfg.bt_update_delay)) {
+            tsdz_bt_update();
+            tsdz_bt_task_count = 0;
+        }
+
+        // Cycling Power BT Service notification task (1 notification/sec)
+        if (++cycling_power_bt_task_count >= 100) {
+            cycling_bt_update();
+            cycling_power_bt_task_count = 0;
         }
     }
 }
