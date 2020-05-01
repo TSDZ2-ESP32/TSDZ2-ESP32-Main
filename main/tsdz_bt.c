@@ -983,9 +983,9 @@ void tsdz_bt_update(void) {
 static uint8_t cyclingPowerMsg[16] = {0x30,0x08,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 void cycling_bt_update(void) {
-	static uint32_t last_wheel_rev = 0;
+	static uint32_t last_wheel_revs = 0;
 	static uint16_t last_wheel_time = 0;
-	static uint16_t last_crank_rev = 0;
+	static uint16_t last_crank_revs = 0;
 	static uint16_t last_crank_time = 0;
     esp_err_t ret;
     if (gatts_profile_tab[CYCLING_POWER_PROFILE].conn_id != 0xffff) {
@@ -1009,16 +1009,14 @@ void cycling_bt_update(void) {
             cyclingPowerMsg[7] = ((wheel_revolutions>>24) & 0xff);
 
             // last Wheel revolution time (sec/2048)
-            if (tsdz_status.ui16_wheel_speed_x10 > 0) {
-            	if ((wheel_revolutions - last_wheel_rev) > 0) {
-					tmp = (wheel_revolutions - last_wheel_rev) * (uint32_t)tsdz_cfg.ui16_wheel_perimeter * 2048L
-							 / ((uint32_t)tsdz_status.ui16_wheel_speed_x10 * 1000L / 36L);
-					tmp += last_wheel_time;
-					last_wheel_time = tmp & 0xffff;
-            	}
-            } else
-            	last_wheel_time = 0;
-            last_wheel_rev = wheel_revolutions;
+
+			if ( (wheel_revolutions > last_wheel_revs) && (tsdz_status.ui16_wheel_speed_x10 > 0) ) {
+				tmp = (wheel_revolutions - last_wheel_revs) * (uint32_t)tsdz_cfg.ui16_wheel_perimeter * 2048L
+						 / ((uint32_t)tsdz_status.ui16_wheel_speed_x10 * 1000L / 36L);
+				tmp += last_wheel_time;
+				last_wheel_time = tmp & 0xffff;
+			}
+            last_wheel_revs = wheel_revolutions;
             ESP_LOGI(TAG, "wheel time:%u", last_wheel_time);
             cyclingPowerMsg[8] = (last_wheel_time & 0xff);
             cyclingPowerMsg[9] = ((last_wheel_time>>8) & 0xff);
@@ -1029,16 +1027,14 @@ void cycling_bt_update(void) {
             cyclingPowerMsg[11] = ((crank_revolutions>>8) & 0xff);
 
             // Crank revolution time (sec/1024) (60*1024/rmp)
-            if (tsdz_status.ui8_pedal_cadence_RPM > 0) {
-            	if ((crank_revolutions - last_crank_rev) > 0) {
-					// N. revs * 60/rpm * 1024
-					tmp = (crank_revolutions - last_crank_rev) * 61440 / tsdz_status.ui8_pedal_cadence_RPM;
-					tmp += last_crank_time;
-					last_crank_time = tmp & 0xffff;
-            	}
-            } else
-            	last_crank_time = 0;
-            last_crank_rev = crank_revolutions;
+			if ( (crank_revolutions > last_crank_revs) && (tsdz_status.ui8_pedal_cadence_RPM > 0) ) {
+				// N. revs * 60/rpm * 1024
+				tmp = (crank_revolutions - last_crank_revs) * 61440 / tsdz_status.ui8_pedal_cadence_RPM;
+				tmp += last_crank_time;
+				last_crank_time = tmp & 0xffff;
+			}
+
+            last_crank_revs = crank_revolutions;
             ESP_LOGI(TAG, "crank time:%d", last_crank_time);
             cyclingPowerMsg[12] = (last_crank_time & 0xff);
             cyclingPowerMsg[13] = ((last_crank_time>>8) & 0xff);
