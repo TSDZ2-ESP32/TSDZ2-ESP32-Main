@@ -127,6 +127,47 @@ struct gatts_profile_inst {
     esp_bt_uuid_t descr_uuid;
 };
 
+
+enum {
+    FEATURE_PEDAL_POWER_BALANCE                 = 0x00000001,
+    FEATURE_ACCUMULATED_TORQUE                  = 0x00000002,
+    FEATURE_WHEEL_REVOLUTION_DATA               = 0x00000004,
+    FEATURE_CRANK_REVOLUTION_DATA               = 0x00000008,
+    FEATURE_EXTREME_MAGNITUDES                  = 0x00000010,
+    FEATURE_EXTREME_ANGLES                      = 0x00000020,
+    FEATURE_TOP_AND_BOTTOM_DEAD_SPOT_ANGLES     = 0x00000040,
+    FEATURE_ACCUMULATED_ENERGY                  = 0x00000080,
+    FEATURE_OFFSET_COMPENSATION_INDICATOR       = 0x00000100,
+    FEATURE_OFFSET_COMPENSATION                 = 0x00000200,
+    FEATURE_MEASUREMENT_CONTENT_MASKING         = 0x00000400,
+    FEATURE_MULTIPLE_SENSOR_LOCATIONS           = 0x00000800,
+    FEATURE_CRANK_LENGTH_ADJUSTMENT             = 0x00001000,
+    FEATURE_CHAIN_LENGTH_ADJUSTMENT             = 0x00002000,
+    FEATURE_CHAIN_WEIGHT_ADJUSTMENT             = 0x00004000,
+    FEATURE_SPAN_LENGTH_ADJUSTMENT              = 0x00008000,
+    FEATURE_SENSOR_MEASUREMENT_TORQUE_BASED     = 0x00010000,
+    FEATURE_INSTANTANEOUS_MEASUREMENT_DIRECTION = 0x00020000,
+    FEATURE_FACTORY_CALIBRATION_DATE            = 0x00040000,
+};
+
+enum {
+    FLAG_PEDAL_POWER_BALANCE_PRESENT           = 0x0001,
+    FLAG_PEDAL_POWER_BALANCE_REFERENCE_LEFT    = 0x0002,
+    FLAG_ACCUMULATED_TORQUE_PRESENT            = 0x0004,
+    FLAG_ACCUMULATED_TORQUE_SOURCE_CRANK_BASED = 0x0008,
+    FLAG_WHEEL_REVOLUTION_DATA_PRESENT         = 0x0010,
+    FLAG_CRANK_REVOLUTION_DATA_PRESENT         = 0x0020,
+    FLAG_EXTREME_FORCE_MAGNITUDES_PRESENT      = 0x0040,
+    FLAG_EXTREME_TORQUE_MAGNITUDES_PRESENT     = 0x0080,
+    FLAG_EXTREME_ANGLES_PRESENT                = 0x0100,
+    FLAG_TOP_DEAD_SPOT_ANGLE_PRESENT           = 0x0200,
+    FLAG_BOTTOM_DEAD_SPOT_ANGLE_PRESENT        = 0x0400,
+    FLAG_ACCUMULATED_ENERGY_PRESENT            = 0x0800,
+    FLAG_OFFSET_COMPENSATION_INDICATOR         = 0x1000,
+};
+
+
+
 static void gatts_tsdz_profile_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
 static void gatts_cycling_profile_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
 
@@ -150,13 +191,25 @@ static const uint16_t GATTS_CHAR_UUID_TSDZ_STATUS  = 0xFF01;
 static const uint16_t GATTS_CHAR_UUID_TSDZ_DEBUG   = 0xFF02;
 static const uint16_t GATTS_CHAR_UUID_TSDZ_CFG     = 0xFF03;
 static const uint16_t GATTS_CHAR_UUID_TSDZ_COMMAND = 0xFF04;
+
+#define MAX_MEASURE_BYTES 19
+static const uint8_t sensor_loction_attr[1] = {0x0B};
+static uint8_t cyclingMsg[MAX_MEASURE_BYTES];
 /* Cycling Power Service */
 static const uint16_t GATTS_SERVICE_UUID_CYCLING_POWER          = 0x1818;
 static const uint16_t GATTS_CHAR_UUID_SENSOR_LOCATION           = 0x2A5D;
 static const uint16_t GATTS_CHAR_UUID_CYCLING_POWER_FEATURE     = 0x2A65;
 static const uint16_t GATTS_CHAR_UUID_CYCLING_POWER_MEASUREMENT = 0x2A63;
+// Wheel revs, cCank revs, and Accumulated Energy
+static const uint8_t power_feature_attr[4] = {0x8C,0x00,0x00,0x00};
 
-
+/* Cycling Speed and Cadence Service
+static const uint16_t GATTS_SERVICE_UUID_CYCLING_POWER          = 0x1816;
+static const uint16_t GATTS_CHAR_UUID_SENSOR_LOCATION           = 0x2A5D;
+static const uint16_t GATTS_CHAR_UUID_CYCLING_POWER_FEATURE     = 0x2A5C;
+static const uint16_t GATTS_CHAR_UUID_CYCLING_POWER_MEASUREMENT = 0x2A5B;
+static const uint8_t power_feature_attr[2] = {0x03,0x00};
+*/
 
 static const uint16_t primary_service_uuid         = ESP_GATT_UUID_PRI_SERVICE;
 static const uint16_t character_declaration_uuid   = ESP_GATT_UUID_CHAR_DECLARE;
@@ -169,8 +222,6 @@ static const uint8_t char_prop_notify              = ESP_GATT_CHAR_PROP_BIT_NOTI
 static const uint8_t char_prop_read_write          = ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_READ;
 
 static const uint8_t tsdz_attr_ccc[2] = {0x00, 0x00};
-static const uint8_t null_attr[1] = {0x00};
-static const uint8_t power_feature_attr[4] = {0x8C,0x00,0x00,0x00};
 
 
 static char *esp_key_type_to_str(esp_ble_key_type_t key_type)
@@ -362,8 +413,8 @@ static const esp_gatts_attr_db_t cycling_gatt_db[IDX_CYCLING_DB_NUM] = {
         [IDX_CHAR_VAL_CYCLING_POWER_MEASUREMENT] =
         { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
                 (uint8_t *) &GATTS_CHAR_UUID_CYCLING_POWER_MEASUREMENT, ESP_GATT_PERM_READ,
-                sizeof(null_attr), sizeof(null_attr),
-                (uint8_t *) (&null_attr)} },
+                MAX_MEASURE_BYTES, MAX_MEASURE_BYTES,
+                (uint8_t *) (&cyclingMsg)} },
         // Client Characteristic Configuration Descriptor
         [IDX_CHAR_CFG_CYCLING_POWER_MEASUREMENT] =
         { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
@@ -392,8 +443,8 @@ static const esp_gatts_attr_db_t cycling_gatt_db[IDX_CYCLING_DB_NUM] = {
         [IDX_CHAR_VAL_SENSOR_LOCATION] =
         { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
                 (uint8_t *) &GATTS_CHAR_UUID_SENSOR_LOCATION, ESP_GATT_PERM_READ,
-                sizeof(null_attr), sizeof(null_attr),
-                (uint8_t *) (&null_attr) } }
+                sizeof(sensor_loction_attr), sizeof(sensor_loction_attr),
+                (uint8_t *) (&sensor_loction_attr) } }
 };
 
 
@@ -705,8 +756,8 @@ static void gatts_tsdz_profile_handler(esp_gatts_cb_event_t event, esp_gatt_if_t
         memcpy(conn_params.bda, param->connect.remote_bda, sizeof(esp_bd_addr_t));
         /* For the iOS system, please refer to Apple official documents about the BLE connection parameters restrictions. */
         conn_params.latency = 0;
-        conn_params.max_int = 0x20;    // max_int = 0x20*1.25ms = 40ms
-        conn_params.min_int = 0x10;    // min_int = 0x10*1.25ms = 20ms
+        conn_params.max_int = 0x30;    // max_int = 0x30*1.25ms = 60ms
+        conn_params.min_int = 0x20;    // min_int = 0x20*1.25ms = 40ms
         conn_params.timeout = 400;    // timeout = 400*10ms = 4000ms
         //start sent the update connection parameters to the peer device.
         esp_ble_gap_update_conn_params(&conn_params);
@@ -725,7 +776,7 @@ static void gatts_tsdz_profile_handler(esp_gatts_cb_event_t event, esp_gatt_if_t
                         doesn't equal to IDX_TSDZ_NUM(%d)", param->add_attr_tab.num_handle, IDX_TSDZ_DB_NUM);
         }
         else {
-            ESP_LOGI(TAG, "T create attribute table successfully, the number handle = %d\n",param->add_attr_tab.num_handle);
+            ESP_LOGI(TAG, "T create attribute table successfully, the number handle = %d",param->add_attr_tab.num_handle);
             memcpy(tsdz_handle_table, param->add_attr_tab.handles, sizeof(tsdz_handle_table));
             esp_ble_gatts_start_service(tsdz_handle_table[IDX_TSDZ_SVC]);
         }
@@ -980,13 +1031,16 @@ void tsdz_bt_update(void) {
     }
 }
 
-static uint8_t cyclingPowerMsg[16] = {0x30,0x08,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 void cycling_bt_update(void) {
-	static uint32_t last_wheel_revs = 0;
-	static uint16_t last_wheel_time = 0;
-	static uint16_t last_crank_revs = 0;
-	static uint16_t last_crank_time = 0;
+    static uint16_t flags = (FLAG_WHEEL_REVOLUTION_DATA_PRESENT +
+    		FLAG_CRANK_REVOLUTION_DATA_PRESENT +
+			FLAG_ACCUMULATED_ENERGY_PRESENT);
+    static uint32_t dCumulativeWheelRev = 0;
+    static uint16_t dLastWheelEventTime = 0;
+    static uint16_t dCumulativeCrankRev = 0;
+    static uint16_t dLastCrankEventTime = 0;
+
     esp_err_t ret;
     if (gatts_profile_tab[CYCLING_POWER_PROFILE].conn_id != 0xffff) {
         // Client Charactersitic Configuration bit 0 set -> Notification enabled
@@ -994,62 +1048,64 @@ void cycling_bt_update(void) {
         const uint8_t* value;
         ret = esp_ble_gatts_get_attr_value(cycling_handle_table[IDX_CHAR_CFG_CYCLING_POWER_MEASUREMENT], &l, &value);
         if (ret==ESP_OK && l==2 && (value[0]&0x01)) {
-            uint32_t tmp;
+        	uint32_t tmp;
+            unsigned i = 0;
+
+        	// flags
+            cyclingMsg[i++] = (uint8_t)(flags & 0xFF);
+            cyclingMsg[i++] = (uint8_t)((flags >> 8) & 0xFF);
+
             // intantaneus Power (W)
             tmp = tsdz_status.ui16_battery_voltage_x1000 * tsdz_status.ui8_battery_current_x10 / 10000;
             ESP_LOGI(TAG, "power:%d", tmp&0xffff);
-            cyclingPowerMsg[2] = (tmp & 0xff);
-            cyclingPowerMsg[3] = ((tmp>>8) & 0xff);
+            cyclingMsg[i++] = (uint8_t)(tmp & 0xff);
+            cyclingMsg[i++] = (uint8_t)((tmp >> 8) & 0xff);
 
             // Wheel revolutions
             ESP_LOGI(TAG, "wheel_revolutions:%u", wheel_revolutions);
-            cyclingPowerMsg[4] = (wheel_revolutions & 0xff);
-            cyclingPowerMsg[5] = ((wheel_revolutions>>8) & 0xff);
-            cyclingPowerMsg[6] = ((wheel_revolutions>>16) & 0xff);
-            cyclingPowerMsg[7] = ((wheel_revolutions>>24) & 0xff);
+            cyclingMsg[i++] = (uint8_t)(wheel_revolutions & 0xff);
+            cyclingMsg[i++] = (uint8_t)((wheel_revolutions>>8) & 0xff);
+            cyclingMsg[i++] = (uint8_t)((wheel_revolutions>>16) & 0xff);
+            cyclingMsg[i++] = (uint8_t)((wheel_revolutions>>24) & 0xff);
 
             // last Wheel revolution time (sec/2048)
-
-			if ( (wheel_revolutions > last_wheel_revs) && (tsdz_status.ui16_wheel_speed_x10 > 0) ) {
-				tmp = (wheel_revolutions - last_wheel_revs) * (uint32_t)tsdz_cfg.ui16_wheel_perimeter * 2048L
+			if ( (wheel_revolutions > dCumulativeWheelRev) && (tsdz_status.ui16_wheel_speed_x10 > 0) ) {
+				tmp = (wheel_revolutions - dCumulativeWheelRev) * (uint32_t)tsdz_cfg.ui16_wheel_perimeter * 2048L
 						 / ((uint32_t)tsdz_status.ui16_wheel_speed_x10 * 1000L / 36L);
-				tmp += last_wheel_time;
-				last_wheel_time = tmp & 0xffff;
+				tmp += dLastWheelEventTime;
+				dLastWheelEventTime = tmp & 0xffff;
 			}
-            last_wheel_revs = wheel_revolutions;
-            ESP_LOGI(TAG, "wheel time:%u", last_wheel_time);
-            cyclingPowerMsg[8] = (last_wheel_time & 0xff);
-            cyclingPowerMsg[9] = ((last_wheel_time>>8) & 0xff);
+            dCumulativeWheelRev = wheel_revolutions;
+            ESP_LOGI(TAG, "wheel time:%u", dLastWheelEventTime);
+            cyclingMsg[i++] = (uint8_t)(dLastWheelEventTime & 0xff);
+            cyclingMsg[i++] = (uint8_t)((dLastWheelEventTime>>8) & 0xff);
 
             // Crank revolutions
             ESP_LOGI(TAG, "crank_revolutions:%u", crank_revolutions);
-            cyclingPowerMsg[10] = (crank_revolutions & 0xff);
-            cyclingPowerMsg[11] = ((crank_revolutions>>8) & 0xff);
+            cyclingMsg[i++] = (uint8_t)(crank_revolutions & 0xff);
+            cyclingMsg[i++] = (uint8_t)((crank_revolutions>>8) & 0xff);
 
             // Crank revolution time (sec/1024) (60*1024/rmp)
-			if ( (crank_revolutions > last_crank_revs) && (tsdz_status.ui8_pedal_cadence_RPM > 0) ) {
+			if ( (crank_revolutions > dCumulativeCrankRev) && (tsdz_status.ui8_pedal_cadence_RPM > 0) ) {
 				// N. revs * 60/rpm * 1024
-				tmp = (crank_revolutions - last_crank_revs) * 61440 / tsdz_status.ui8_pedal_cadence_RPM;
-				tmp += last_crank_time;
-				last_crank_time = tmp & 0xffff;
+				tmp = (crank_revolutions - dCumulativeCrankRev) * 61440 / tsdz_status.ui8_pedal_cadence_RPM;
+				tmp += dLastCrankEventTime;
+				dLastCrankEventTime = tmp & 0xffff;
 			}
-
-            last_crank_revs = crank_revolutions;
-            ESP_LOGI(TAG, "crank time:%d", last_crank_time);
-            cyclingPowerMsg[12] = (last_crank_time & 0xff);
-            cyclingPowerMsg[13] = ((last_crank_time>>8) & 0xff);
+            dCumulativeCrankRev = crank_revolutions;
+            ESP_LOGI(TAG, "crank time:%d", dLastCrankEventTime);
+            cyclingMsg[i++] = (dLastCrankEventTime & 0xff);
+            cyclingMsg[i++] = ((dLastCrankEventTime>>8) & 0xff);
 
             // Accumulated Energy (KJ = Wh * 3600 / 1000)
             tmp = (uint32_t)tsdz_status.ui16_battery_wh * 36L / 10L;
-            cyclingPowerMsg[14] = (tmp & 0xff);
-            cyclingPowerMsg[15] = ((tmp>>8) & 0xff);
+            cyclingMsg[i++] = (tmp & 0xff);
+            cyclingMsg[i++] = ((tmp>>8) & 0xff);
 
             ret = esp_ble_gatts_send_indicate(gatts_profile_tab[CYCLING_POWER_PROFILE].gatts_if, gatts_profile_tab[CYCLING_POWER_PROFILE].conn_id, cycling_handle_table[IDX_CHAR_VAL_CYCLING_POWER_MEASUREMENT],
-                    16, cyclingPowerMsg, false);
+                    i, cyclingMsg, false);
             if (ret)
                 ESP_LOGE(TAG, "cycling_bt_update, cycling_power notifiation failed, error code = %x", ret);
-            //else
-            	//ESP_LOGI(TAG, "cycling_bt_update done");
         }
     }
 }

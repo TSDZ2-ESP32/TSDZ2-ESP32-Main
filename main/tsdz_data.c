@@ -25,7 +25,7 @@ const __attribute__((section(".rodata_custom_desc"))) uint32_t bt_passkey = CONF
 // System Configuration parameters
 // Readed from NVS at startup
 struct_esp32_cfg esp32_cfg = {
-    .bt_update_delay = DEFAULT_BT_UPDATE_DELAY, //
+    .msg_sec = DEFAULT_MSG_SEC,
     .ds18b20_pin = DEFAULT_DS18B20_PIN,
     .log_level = 1
 };

@@ -17,7 +17,7 @@
 
 static const char *TAG = "tsdz_nvs";
 
-static const uint8_t NVS_KEY_VAL = 0x05;
+static const uint8_t NVS_KEY_VAL = 0x02;
 
 // NVS Configuration Key values
 static const char* NVS_KEY       = "KEY";
@@ -85,7 +85,7 @@ void tsdz_nvs_read_cfg(void) {
     if((err != ESP_OK) || (NVS_KEY_VAL != key)) {
         tsdz_nvs_write_default_cfg();
     }
-    ESP_LOGI(TAG,"NVS KEY = %x", key);
+    ESP_LOGI(TAG,"NVS KEY = %x", NVS_KEY_VAL);
 
     size_t len = sizeof(tsdz_cfg);
     err = nvs_get_blob(my_handle, TSDZ_CFG_KEY, &tsdz_cfg, &len);

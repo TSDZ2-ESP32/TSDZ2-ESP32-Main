@@ -69,17 +69,17 @@
 #define BATTERY_OVERVOLTAGE                1
 #define BATTERY_UNDERVOLTAGE            2
 
-#define MIN_BT_UPDTAE_DELAY             20 // 200 ms (5 notification/sec)
-#define MAX_BT_UPDATE_DELAY             100 // 1000 ms (1 notification/sec)
-#define DEFAULT_BT_UPDATE_DELAY            25 // 250 ms (4 notification/sec)
-#define MIN_DS18B20_PIN                     3
-#define MAX_DS18B20_PIN                     31
-#define DEFAULT_DS18B20_PIN                4
+#define MIN_MSG_SEC                     1 // (1 notification/sec)
+#define MAX_MSG_SEC                     5 // (5 notification/sec)
+#define DEFAULT_MSG_SEC                 2 // (2 notification/sec)
+#define MIN_DS18B20_PIN                 3
+#define MAX_DS18B20_PIN                 31
+#define DEFAULT_DS18B20_PIN             4
 
 #pragma pack(1)
 typedef struct _esp32_cfg
 {
-    volatile uint8_t bt_update_delay;
+    volatile uint8_t msg_sec;
     volatile uint8_t ds18b20_pin;
     volatile uint8_t log_level;
 } struct_esp32_cfg;

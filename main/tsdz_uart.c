@@ -90,7 +90,6 @@ void tsdz_uart_init(void) {
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "uart_set_pin CT_UART error=%d", err);
     }
-    gpio_pullup_en(CT_TX_PIN);
     err = uart_driver_install(CT_UART, 256, 256, 0, NULL, 0);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "uart_driver_install CT_UART error=%d", err);

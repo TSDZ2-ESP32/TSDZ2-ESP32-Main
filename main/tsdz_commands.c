@@ -52,10 +52,10 @@ static int command_esp32_cfg(uint8_t* value, uint16_t len) {
     if (value[0] == SET) {
         uint8_t ret_val[3] = {CMD_ESP32_CFG,SET,0};
 
-        if (value[1] < MIN_BT_UPDTAE_DELAY || value[1] > MAX_BT_UPDATE_DELAY)
-            esp32_cfg.bt_update_delay = DEFAULT_BT_UPDATE_DELAY;
+        if (value[1] < MIN_MSG_SEC || value[1] > MAX_MSG_SEC)
+            esp32_cfg.msg_sec = DEFAULT_MSG_SEC;
         else
-            esp32_cfg.bt_update_delay = value[1];
+            esp32_cfg.msg_sec = value[1];
 
         if (value[2] < MIN_DS18B20_PIN || value[2] > MAX_DS18B20_PIN)
             esp32_cfg.ds18b20_pin = DEFAULT_DS18B20_PIN;
@@ -72,7 +72,7 @@ static int command_esp32_cfg(uint8_t* value, uint16_t len) {
         return 0;
     } else if (value[0] == GET) {
         uint8_t ret_val[6] = {CMD_ESP32_CFG,GET,0,0,0,0};
-        ret_val[3] = esp32_cfg.bt_update_delay;
+        ret_val[3] = esp32_cfg.msg_sec;
         ret_val[4] = esp32_cfg.ds18b20_pin;
         ret_val[5] = esp32_cfg.log_level;
         tsdz_bt_notify_command(ret_val, 6);
