@@ -14,8 +14,8 @@
 #define CT_UART             UART_NUM_2
 
 #define CT_TX_PIN           GPIO_NUM_27  // Controller TX and RX2 for ESP32
-#define CT_RX_PIN           GPIO_NUM_26  // Controller RX and TX2 for ESP32
-#define LCD_TX_PIN          GPIO_NUM_25  // LCD TX and RX1 for ESP32
+#define CT_RX_PIN           GPIO_NUM_25  // Controller RX and TX2 for ESP32
+#define LCD_TX_PIN          GPIO_NUM_26  // LCD TX and RX1 for ESP32
 #define LCD_RX_PIN          GPIO_NUM_33  // LCD RX and TX1 for ESP32
 
 #define CT_MSG_ID           0x43
