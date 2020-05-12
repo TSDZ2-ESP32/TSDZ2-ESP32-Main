@@ -50,6 +50,7 @@ void app_main(void)
     ESP_LOGI(TAG, "Start normal");
 
 
+    /*
     ESP_LOGI(TAG, "PM cfg ...");
 	esp_pm_config_esp32_t pm_config = {
 	   .max_freq_mhz = 80,
@@ -60,6 +61,7 @@ void app_main(void)
 	if((ret = esp_pm_configure(&pm_config)) != ESP_OK) {
 		ESP_LOGE(TAG, "esp_pm_configure: %d", ret);
 	}
+	*/
 
 
     // wait 1 sec to avoid STM8 bootloader activation
@@ -106,12 +108,14 @@ void mainTask(void * pvParameters) {
         // delay MAIN_LOOP_SLEEP_MS ms from previous call
         vTaskDelayUntil(&xLastWakeUpTime, pdMS_TO_TICKS(MAIN_LOOP_SLEEP_MS));
 
+
         if ((cycling_power_bt_task_count % 50) == 45) {
             if (esp_bt_controller_is_sleeping())
                 ESP_LOGD(TAG, "Modem Sleep ON!");
             else
                 ESP_LOGD(TAG, "Modem Sleep OFF!");
         }
+
 
         // uart send/receive task
         // run every loop
