@@ -127,8 +127,8 @@ void tsdz_data_update() {
     // calculate Wh consumption
     update_energy();
 
-    // save Wh consumed every 1 Wh increment
-    if ((lastUpdateValue/10) != (ui32_wh_x10/10)) {
+    // save Wh consumed every 5 Wh increment
+    if ((lastUpdateValue/50) != (ui32_wh_x10/50)) {
         lastUpdateValue = ui32_wh_x10;
         tsdz_nvs_update_whOffset();
     }
@@ -581,7 +581,7 @@ void update_energy(void)
     ui32_wh_sum_x10 += ui16_battery_power_filtered_x10;
 
     // calculate watt-hours since last full charge
-    ui32_wh_x10 = ui32_wh_x10_offset + (ui32_wh_sum_x10 / 36000);
+    ui32_wh_x10 = ui32_wh_x10_offset + (ui32_wh_sum_x10 / 3600);
     tsdz_status.ui16_battery_wh = (uint16_t)(ui32_wh_x10 / 10);
 }
 
