@@ -120,6 +120,8 @@ typedef struct _tsdz_cfg
     volatile uint8_t ui8_torque_assist_level[4];
     volatile uint8_t ui8_eMTB_assist_sensitivity[4];
     volatile uint8_t ui8_walk_assist_level[4];
+    volatile uint8_t ui8_torque_offset_fix;
+    volatile uint16_t ui16_torque_offset_value;
 } struct_tsdz_cfg;
 
 #pragma pack(1)

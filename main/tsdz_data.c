@@ -92,6 +92,8 @@ struct_tsdz_cfg tsdz_cfg = {
     .ui8_torque_assist_level = {15,40,65,90},
     .ui8_eMTB_assist_sensitivity = {6,10,14,18},
     .ui8_walk_assist_level = {20,30,40,48},
+    .ui8_torque_offset_fix = 0,
+    .ui16_torque_offset_value = 0
 };
 
 uint8_t stm8_fw_version = -1;
@@ -477,9 +479,9 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
             break;
 
         case 3:
-            lcd_os_message[5] = 0;
-            lcd_os_message[6] = 0;
-            lcd_os_message[7] = 0;
+            lcd_os_message[5] = tsdz_cfg.ui8_torque_offset_fix;
+            lcd_os_message[6] = (uint8_t) (tsdz_cfg.ui16_torque_offset_value & 0xff);
+            lcd_os_message[7] = (uint8_t) (tsdz_cfg.ui16_torque_offset_value >> 8);
             break;
         case 4:
             // lights configuration
