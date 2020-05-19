@@ -153,6 +153,8 @@ typedef struct _tsdz_debug
     volatile uint16_t ui16_pedal_torque_x100;
     volatile uint16_t ui16_cadence_sensor_pulse_high_percentage_x10;
     volatile int16_t i16_pcb_temperaturex10;
+    volatile uint8_t ui8_rxc_errors;
+    volatile uint8_t ui8_rxl_errors;
 } struct_tsdz_debug;
 
 

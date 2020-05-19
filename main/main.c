@@ -109,12 +109,14 @@ void mainTask(void * pvParameters) {
         vTaskDelayUntil(&xLastWakeUpTime, pdMS_TO_TICKS(MAIN_LOOP_SLEEP_MS));
 
 
+        /*
         if ((cycling_power_bt_task_count % 50) == 45) {
             if (esp_bt_controller_is_sleeping())
                 ESP_LOGD(TAG, "Modem Sleep ON!");
             else
                 ESP_LOGD(TAG, "Modem Sleep OFF!");
         }
+        */
 
 
         // uart send/receive task

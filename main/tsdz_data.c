@@ -53,7 +53,9 @@ struct_tsdz_debug tsdz_debug = {
     .ui8_foc_angle = 0,
     .ui16_pedal_torque_x100 = 0,
     .ui16_cadence_sensor_pulse_high_percentage_x10 = 0,
-    .i16_pcb_temperaturex10 = -999
+    .i16_pcb_temperaturex10 = -999,
+	.ui8_rxc_errors = 0,
+	.ui8_rxl_errors = 0
 };
 
 // Motor Configuration parameters (can be updated by the Android App)
