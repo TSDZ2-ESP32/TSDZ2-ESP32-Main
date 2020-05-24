@@ -313,16 +313,13 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
 void processControllerMessage(const uint8_t ct_os_message[]) {
     // update motor controller status
 
-    // battery voltage
-    tsdz_status.ui16_battery_voltage_x1000 = (((uint16_t) ct_os_message[2]) << 8) + ((uint16_t) ct_os_message[1]);
-
     // battery current x10
     tsdz_status.ui8_battery_current_x10 = ct_os_message[3];
 
+    // battery voltage
     // add voltage dropout due to battery internal resistance
     uint32_t tmp = (uint32_t)tsdz_status.ui8_battery_current_x10 * (uint32_t)tsdz_cfg.ui16_battery_pack_resistance_x1000 / (uint32_t)10;
-    tsdz_status.ui16_battery_voltage_x1000 += (uint16_t)tmp;
-
+    tsdz_status.ui16_battery_voltage_x1000 = (((uint16_t) ct_os_message[2]) << 8) + ((uint16_t) ct_os_message[1]) + (uint16_t)tmp;
 
     // calculate battery Power filterd for Wh calcualtion
     uint32_t ui32_battery_power_temp_x10 = ((uint32_t) tsdz_status.ui16_battery_voltage_x1000 * tsdz_status.ui8_battery_current_x10) / 1000;
