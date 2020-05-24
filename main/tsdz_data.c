@@ -27,7 +27,8 @@ const __attribute__((section(".rodata_custom_desc"))) uint32_t bt_passkey = CONF
 struct_esp32_cfg esp32_cfg = {
     .msg_sec = DEFAULT_MSG_SEC,
     .ds18b20_pin = DEFAULT_DS18B20_PIN,
-    .log_level = 1
+    .log_level = 3,
+    .lock_enabled = 0
 };
 
 struct_tsdz_status tsdz_status = {
@@ -99,6 +100,7 @@ struct_tsdz_cfg tsdz_cfg = {
 };
 
 uint8_t stm8_fw_version = -1;
+uint8_t bike_locked = 0;
 
 // local OEM LCD values
 static uint8_t ui8_oem_wheel_diameter;
@@ -243,7 +245,7 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
     ct_oem_message[4] = 0x46;
 
     // system status
-    if(tsdz_status.ui8_controller_system_state == ERROR_MOTOR_BLOCKED)
+    if((tsdz_status.ui8_controller_system_state == ERROR_MOTOR_BLOCKED) || (bike_locked != 0))
         ui8_error_code = OEM_ERROR_MOTOR_BLOCKED;
     else if (tsdz_status.ui8_controller_system_state == ERROR_TORQUE_SENSOR)
         ui8_error_code = OEM_ERROR_TORQUE_SENSOR;
@@ -316,6 +318,11 @@ void processControllerMessage(const uint8_t ct_os_message[]) {
 
     // battery current x10
     tsdz_status.ui8_battery_current_x10 = ct_os_message[3];
+
+    // add voltage dropout due to battery internal resistance
+    uint32_t tmp = (uint32_t)tsdz_status.ui8_battery_current_x10 * (uint32_t)tsdz_cfg.ui16_battery_pack_resistance_x1000 / (uint32_t)10;
+    tsdz_status.ui16_battery_voltage_x1000 += (uint16_t)tmp;
+
 
     // calculate battery Power filterd for Wh calcualtion
     uint32_t ui32_battery_power_temp_x10 = ((uint32_t) tsdz_status.ui16_battery_voltage_x1000 * tsdz_status.ui8_battery_current_x10) / 1000;
@@ -398,13 +405,16 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
     lcd_os_message[1] = ui8_message_ID;
 
     // riding mode
-    if (ui8_cadence_sensor_calibration)
+    // if bike locked reset to OFF_Mode
+    if (bike_locked)
+        lcd_os_message[2] = OFF_MODE;
+    else if (ui8_cadence_sensor_calibration)
         lcd_os_message[2] = CADENCE_SENSOR_CALIBRATION_MODE;
     else
         lcd_os_message[2] = tsdz_status.ui8_riding_mode;
 
     // riding mode parameter
-    switch (tsdz_status.ui8_riding_mode) {
+    switch (lcd_os_message[2]) {
         case POWER_ASSIST_MODE:
             if (tsdz_status.ui8_assist_level > 0) {
                 lcd_os_message[3] = tsdz_cfg.ui8_power_assist_level[tsdz_status.ui8_assist_level - 1];
@@ -620,6 +630,6 @@ void update_battery() {
                 tsdz_cfg.ui8_li_io_cell_one_bar_x100,
                 tsdz_cfg.ui8_li_io_cell_full_bars_x100,
                 1,
-                12);
+                11);
     }
 }

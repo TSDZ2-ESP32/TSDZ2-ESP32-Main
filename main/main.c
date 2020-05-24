@@ -49,7 +49,6 @@ void app_main(void)
 
     ESP_LOGI(TAG, "Start normal");
 
-
     /*
     ESP_LOGI(TAG, "PM cfg ...");
 	esp_pm_config_esp32_t pm_config = {
@@ -67,10 +66,12 @@ void app_main(void)
     // wait 1 sec to avoid STM8 bootloader activation
     vTaskDelay(pdMS_TO_TICKS(1000));
 
-    // Read cfg from NVS and set log level according to NVS configured parameter
+    // Read cfg from NVS
     ESP_LOGI(TAG, "Read cfg ...");
     tsdz_nvs_read_cfg();
+    // set log level and bike_locked according to NVS configured parameters
     setLogLevel();
+    bike_locked = esp32_cfg.lock_enabled;
 
     // initialize the UART
     ESP_LOGI(TAG, "UART init ...");

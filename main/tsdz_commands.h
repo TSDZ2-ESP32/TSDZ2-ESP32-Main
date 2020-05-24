@@ -27,6 +27,7 @@
 #define CMD_STM8S_OTA               0x03
 
 #define CMD_ESP_OTA_STATUS          0x05
+
 // Notification for STM8 OTA status progress
 // total 3 bytes CMD_STM8_OTA_STATUS, Status, Value
 // Status:  0=OTA Completed,

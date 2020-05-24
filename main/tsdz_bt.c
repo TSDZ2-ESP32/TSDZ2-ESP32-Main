@@ -747,6 +747,9 @@ static void gatts_tsdz_profile_handler(esp_gatts_cb_event_t event, esp_gatt_if_t
     case ESP_GATTS_CONNECT_EVT:
         ESP_LOGI(TAG, "T ESP_GATTS_CONNECT_EVT, conn_id = %d", param->connect.conn_id);
 
+        // unlock the bike
+        bike_locked = 0;
+
         /* start security connect with peer device when receive the connect event sent by the master */
         esp_ble_set_encryption(param->connect.remote_bda, ESP_BLE_SEC_ENCRYPT_MITM);
 
@@ -826,6 +829,10 @@ static void gatts_cycling_profile_handler(esp_gatts_cb_event_t event, esp_gatt_i
         break;
     case ESP_GATTS_CONNECT_EVT:
         ESP_LOGI(TAG, "C ESP_GATTS_CONNECT_EVT, conn_id = %d", param->connect.conn_id);
+
+        // unlock the bike
+        bike_locked = 0;
+
         gatts_profile_tab[CYCLING_POWER_PROFILE].conn_id = param->connect.conn_id;
         break;
     case ESP_GATTS_DISCONNECT_EVT:
@@ -890,9 +897,6 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
 void tsdz_bt_init(void)
 {
     esp_err_t ret;
-
-    // TODO
-    //esp_log_level_set(TAG, ESP_LOG_WARN);
 
     ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
 

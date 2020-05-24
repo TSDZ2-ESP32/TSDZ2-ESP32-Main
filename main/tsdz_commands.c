@@ -49,7 +49,7 @@ int exec_command(uint8_t* value, uint16_t len) {
 
 // Read/Set the ESP32 configuration (DS18B20 data pin, BT update interval, LCD pin mapping)
 static int command_esp32_cfg(uint8_t* value, uint16_t len) {
-    if (value[0] == SET) {
+    if (value[0] == SET && len == 5) {
         uint8_t ret_val[3] = {CMD_ESP32_CFG,SET,0};
 
         if (value[1] < MIN_MSG_SEC || value[1] > MAX_MSG_SEC)
@@ -67,15 +67,18 @@ static int command_esp32_cfg(uint8_t* value, uint16_t len) {
             setLogLevel();
         }
 
+        esp32_cfg.lock_enabled = value[4];
+
         tsdz_update_esp32_cfg();
         tsdz_bt_notify_command(ret_val, 3);
         return 0;
     } else if (value[0] == GET) {
-        uint8_t ret_val[6] = {CMD_ESP32_CFG,GET,0,0,0,0};
+        uint8_t ret_val[7] = {CMD_ESP32_CFG,GET,0,0,0,0,0};
         ret_val[3] = esp32_cfg.msg_sec;
         ret_val[4] = esp32_cfg.ds18b20_pin;
         ret_val[5] = esp32_cfg.log_level;
-        tsdz_bt_notify_command(ret_val, 6);
+        ret_val[6] = esp32_cfg.lock_enabled;
+        tsdz_bt_notify_command(ret_val, 7);
         return 0;
     } else {
         uint8_t ret_val[2] = {CMD_ESP32_CFG, 0xff};

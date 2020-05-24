@@ -79,9 +79,10 @@
 #pragma pack(1)
 typedef struct _esp32_cfg
 {
-    volatile uint8_t msg_sec;
-    volatile uint8_t ds18b20_pin;
+    volatile uint8_t msg_sec;  // Android UI update speed
+    volatile uint8_t ds18b20_pin;  // DS18B20 temperature sensor input pin
     volatile uint8_t log_level;
+    volatile uint8_t lock_enabled; // bike lock at power on
 } struct_esp32_cfg;
 
 #pragma pack(1)
@@ -157,6 +158,8 @@ typedef struct _tsdz_debug
     volatile uint8_t ui8_rxl_errors;
 } struct_tsdz_debug;
 
+
+extern uint8_t bike_locked;
 
 extern const uint32_t           bt_passkey;
 extern struct_esp32_cfg         esp32_cfg;
