@@ -236,7 +236,7 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
         ui8_working_status |= 0x01;
     }
     // hold display on flag
-    if (tsdz_status.ui8_battery_current_x10 || tsdz_status.ui16_wheel_speed_x10)
+    if ((tsdz_debug.ui8_duty_cycle > 10) || (tsdz_status.ui16_wheel_speed_x10 > 10))
         ui8_working_status |= 0x04;
     ct_oem_message[2] = ui8_working_status;
 
