@@ -53,7 +53,7 @@ struct_tsdz_debug tsdz_debug = {
     .ui16_motor_speed_erps = 0,
     .ui8_foc_angle = 0,
     .ui16_pedal_torque_x100 = 0,
-    .ui16_cadence_sensor_pulse_high_percentage_x10 = 0,
+    .ui16_dummy = 0,
     .i16_pcb_temperaturex10 = -999,
 	.ui8_rxc_errors = 0,
 	.ui8_rxl_errors = 0
@@ -66,9 +66,9 @@ struct_tsdz_cfg tsdz_cfg = {
     .ui8_motor_type = 1,
     .ui8_motor_temperature_min_value_to_limit = 65,
     .ui8_motor_temperature_max_value_to_limit = 80,
-    .ui8_motor_acceleration = 0,
-    .ui8_cadence_sensor_mode = STANDARD_MODE,
-    .ui16_cadence_sensor_pulse_high_percentage_x10 = 500,
+    .ui8_motor_acceleration = 25,
+    .ui8_dummy = 0,
+    .ui16_dummy = 0,
     .ui8_pedal_torque_per_10_bit_ADC_step_x100 = 67,
     .ui8_optional_ADC_function = 0,
     .ui8_assist_without_pedal_rotation_threshold = 0,
@@ -120,7 +120,6 @@ uint32_t              ui32_wh_x10 = 0;
 uint32_t              ui32_wh_x10_offset = 0;
 uint32_t              wheel_revolutions;
 uint16_t              crank_revolutions;
-volatile uint8_t ui8_cadence_sensor_calibration = 0;
 
 
 void update_battery();
@@ -249,8 +248,6 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
         ui8_error_code = OEM_ERROR_MOTOR_BLOCKED;
     else if (tsdz_status.ui8_controller_system_state == ERROR_TORQUE_SENSOR)
         ui8_error_code = OEM_ERROR_TORQUE_SENSOR;
-    else if (tsdz_status.ui8_controller_system_state == ERROR_CADENCE_SENSOR_CALIBRATION)
-        ui8_error_code = OEM_ERROR_CADENCE_SENSOR_CALIBRATION;
     else if (ui8_BatteryError == BATTERY_OVERVOLTAGE)
         ui8_error_code = OEM_ERROR_OVERVOLTAGE;
     if (tsdz_cfg.ui8_esp32_temp_control || tsdz_cfg.ui8_optional_ADC_function == TEMPERATURE_CONTROL) {
@@ -389,8 +386,8 @@ void processControllerMessage(const uint8_t ct_os_message[]) {
     // calculated from torque and cadence
     tsdz_status.ui16_pedal_power_x10 = ((uint32_t)tsdz_debug.ui16_pedal_torque_x100 * tsdz_status.ui8_pedal_cadence_RPM) / 96;
 
-    // cadence sensor pulse high percentage
-    tsdz_debug.ui16_cadence_sensor_pulse_high_percentage_x10 = (((uint16_t) ct_os_message[26]) << 8) + ((uint16_t) ct_os_message[25]);
+    // not used
+    tsdz_debug.ui16_dummy = (((uint16_t) ct_os_message[26]) << 8) + ((uint16_t) ct_os_message[25]);
 }
 
 void getControllerMessage(uint8_t lcd_os_message[]) {
@@ -405,8 +402,6 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
     // if bike locked reset to OFF_Mode
     if (bike_locked)
         lcd_os_message[2] = OFF_MODE;
-    else if (ui8_cadence_sensor_calibration)
-        lcd_os_message[2] = CADENCE_SENSOR_CALIBRATION_MODE;
     else
         lcd_os_message[2] = tsdz_status.ui8_riding_mode;
 
@@ -524,16 +519,9 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
             }
             break;
         case 6:
-            // cadence sensor mode
-            if (ui8_cadence_sensor_calibration)
-                lcd_os_message[5] = CALIBRATION_MODE;
-            else
-                lcd_os_message[5] = tsdz_cfg.ui8_cadence_sensor_mode;
-
-            // cadence sensor pulse high percentage
-            uint16_t ui16_temp = tsdz_cfg.ui16_cadence_sensor_pulse_high_percentage_x10;
-            lcd_os_message[6] = (uint8_t) (ui16_temp & 0xff);
-            lcd_os_message[7] = (uint8_t) (ui16_temp >> 8);
+            lcd_os_message[5] = 0;
+            lcd_os_message[6] = 0;
+            lcd_os_message[7] = 0;
             break;
         default:
             ui8_message_ID = 0;
@@ -561,7 +549,6 @@ int tsdz_update_cfg(struct_tsdz_cfg *new_cfg) {
         return 0;
     } else {
         if ((new_cfg->ui8_motor_type > 3) ||
-                (new_cfg->ui8_cadence_sensor_mode > CALIBRATION_MODE) ||
                 (new_cfg->ui8_optional_ADC_function > 2) ||
                 (new_cfg->ui8_battery_cells_number > 15) ||
                 (new_cfg->ui8_cruise_mode_enabled > 1) ||
