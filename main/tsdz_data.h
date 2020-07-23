@@ -11,17 +11,10 @@
 #include <stdio.h>
 #include <stdint.h>
 
-
-
 // OSF optional ADC function
 #define NOT_IN_USE                                0
 #define TEMPERATURE_CONTROL                       1
 #define THROTTLE_CONTROL                          2
-
-// OSF cadence sensor modes
-#define STANDARD_MODE                             0
-#define ADVANCED_MODE                             1
-#define CALIBRATION_MODE                          2
 
 // OSF riding modes
 #define OFF_MODE                                  0
@@ -31,7 +24,6 @@
 #define eMTB_ASSIST_MODE                          4
 #define WALK_ASSIST_MODE                          5
 #define CRUISE_MODE                               6
-#define CADENCE_SENSOR_CALIBRATION_MODE           7
 
 // OSF error codes
 #define NO_ERROR                                  0
@@ -41,13 +33,12 @@
 #define ERROR_THROTTLE_APPLIED_DURING_POWER_ON    4  // currently not used
 #define ERROR_NO_SPEED_SENSOR_DETECTED            5  // currently not used
 #define ERROR_LOW_CONTROLLER_VOLTAGE              6  // controller works with no less than 15 V so give error code if voltage is too low
-#define ERROR_CADENCE_SENSOR_CALIBRATION          7
 #define ERROR_OVERVOLTAGE                         8
 #define ERROR_TEMPERATURE_LIMIT                   9
 #define ERROR_TEMPERATURE_MAX                     10
 
-#define WALK_ASSIST_THRESHOLD_SPEED_X10         80 // 8.0 Km/h
-#define CRUISE_THRESHOLD_SPEED_X10                 90 // 9.0 Km/h
+#define WALK_ASSIST_THRESHOLD_SPEED_X10           80 // 8.0 Km/h
+#define CRUISE_THRESHOLD_SPEED_X10                90 // 9.0 Km/h
 
 // OEM Display Status byte masks
 #define OEM_ASSIST_LEVEL0            0x10
@@ -59,14 +50,13 @@
 // OEM Display error codes
 // N.B.: E01, E05, E07 are not available on XH18 display
 #define OEM_NO_ERROR                            0
-#define OEM_ERROR_TORQUE_SENSOR                    2 // E02
-#define OEM_ERROR_CADENCE_SENSOR_CALIBRATION    3 // E03
-#define OEM_ERROR_MOTOR_BLOCKED                    4 // E04
-#define OEM_ERROR_OVERTEMPERATURE                6 // E06
-#define OEM_ERROR_OVERVOLTAGE                    8 // E08
+#define OEM_ERROR_TORQUE_SENSOR                 2 // E02
+#define OEM_ERROR_TBD                           3 // E03
+#define OEM_ERROR_MOTOR_BLOCKED                 4 // E04
+#define OEM_ERROR_OVERTEMPERATURE               6 // E06
+#define OEM_ERROR_OVERVOLTAGE                   8 // E08
 
-
-#define BATTERY_OVERVOLTAGE                1
+#define BATTERY_OVERVOLTAGE             1
 #define BATTERY_UNDERVOLTAGE            2
 
 #define MIN_MSG_SEC                     1 // (1 notification/sec)
@@ -77,8 +67,7 @@
 #define DEFAULT_DS18B20_PIN             4
 
 #pragma pack(1)
-typedef struct _esp32_cfg
-{
+typedef struct _esp32_cfg {
     volatile uint8_t msg_sec;  // Android UI update speed
     volatile uint8_t ds18b20_pin;  // DS18B20 temperature sensor input pin
     volatile uint8_t log_level;
@@ -86,14 +75,13 @@ typedef struct _esp32_cfg
 } struct_esp32_cfg;
 
 #pragma pack(1)
-typedef struct _tsdz_cfg
-{
+typedef struct _tsdz_cfg {
     volatile uint8_t ui8_motor_type;
     volatile uint8_t ui8_motor_temperature_min_value_to_limit;
     volatile uint8_t ui8_motor_temperature_max_value_to_limit;
     volatile uint8_t ui8_motor_acceleration;
-    volatile uint8_t ui8_cadence_sensor_mode;
-    volatile uint16_t ui16_cadence_sensor_pulse_high_percentage_x10;
+    volatile uint8_t ui8_dummy;
+    volatile uint16_t ui16_dummy;
     volatile uint8_t ui8_pedal_torque_per_10_bit_ADC_step_x100;
     volatile uint8_t ui8_optional_ADC_function;
     volatile uint8_t ui8_assist_without_pedal_rotation_threshold;
@@ -126,8 +114,7 @@ typedef struct _tsdz_cfg
 } struct_tsdz_cfg;
 
 #pragma pack(1)
-typedef struct _tsdz_status
-{
+typedef struct _tsdz_status {
     volatile uint8_t ui8_riding_mode;
     volatile uint8_t ui8_assist_level;
     volatile uint16_t ui16_wheel_speed_x10;
@@ -143,8 +130,7 @@ typedef struct _tsdz_status
 } struct_tsdz_status;
 
 #pragma pack(1)
-typedef struct _tsdz_debug
-{
+typedef struct _tsdz_debug {
     volatile uint8_t ui8_adc_throttle;
     volatile uint8_t ui8_throttle;
     volatile uint16_t ui16_adc_pedal_torque_sensor;
@@ -152,27 +138,24 @@ typedef struct _tsdz_debug
     volatile uint16_t ui16_motor_speed_erps;
     volatile uint8_t ui8_foc_angle;
     volatile uint16_t ui16_pedal_torque_x100;
-    volatile uint16_t ui16_cadence_sensor_pulse_high_percentage_x10;
+    volatile uint16_t ui16_dummy;
     volatile int16_t i16_pcb_temperaturex10;
     volatile uint8_t ui8_rxc_errors;
     volatile uint8_t ui8_rxl_errors;
 } struct_tsdz_debug;
 
-
 extern uint8_t bike_locked;
 
-extern const uint32_t           bt_passkey;
-extern struct_esp32_cfg         esp32_cfg;
-extern struct_tsdz_cfg          tsdz_cfg;
-extern struct_tsdz_status       tsdz_status;
-extern struct_tsdz_debug        tsdz_debug;
-extern uint8_t                  stm8_fw_version;
-extern uint32_t                 ui32_wh_x10_offset;
-extern uint32_t                 ui32_wh_x10;
-extern volatile uint8_t         ui8_cadence_sensor_calibration;
-extern uint32_t                 wheel_revolutions;
-extern uint16_t                 crank_revolutions;
-
+extern const uint32_t bt_passkey;
+extern struct_esp32_cfg esp32_cfg;
+extern struct_tsdz_cfg tsdz_cfg;
+extern struct_tsdz_status tsdz_status;
+extern struct_tsdz_debug tsdz_debug;
+extern uint8_t stm8_fw_version;
+extern uint32_t ui32_wh_x10_offset;
+extern uint32_t ui32_wh_x10;
+extern uint32_t wheel_revolutions;
+extern uint16_t crank_revolutions;
 
 void tsdz_data_update();
 void processLcdMessage(const uint8_t lcd_oem_message[]);

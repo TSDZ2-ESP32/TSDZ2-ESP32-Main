@@ -26,7 +26,6 @@
 
 static int command_ota(uint8_t* data, uint16_t len, uint8_t cmdType);
 static int get_app_version(void);
-static int command_cadence_calib(uint8_t* value, uint16_t len);
 static int command_esp32_cfg(uint8_t* value, uint16_t len);
 
 int exec_command(uint8_t* value, uint16_t len) {
@@ -37,8 +36,6 @@ int exec_command(uint8_t* value, uint16_t len) {
             return command_ota(&value[1], len-1, CMD_ESP_OTA);
         case CMD_STM8S_OTA:
             return command_ota(&value[1], len-1, CMD_STM8S_OTA);
-        case CMD_CADENCE_CALIBRATION:
-            return command_cadence_calib(&value[1], len-1);
         case CMD_ESP32_CFG:
             return command_esp32_cfg(&value[1], len-1);
     }
@@ -85,30 +82,6 @@ static int command_esp32_cfg(uint8_t* value, uint16_t len) {
         tsdz_bt_notify_command(ret_val, 2);
         return 1;
     }
-}
-
-// Control the cadence sensor calibration procedure Start/Stop/Save
-static int command_cadence_calib(uint8_t* value, uint16_t len) {
-    uint8_t ret_val[3] = {CMD_CADENCE_CALIBRATION,value[0],0};
-    uint16_t val;
-    switch (value[0]) {
-    case CALIBRATION_START:
-        ui8_cadence_sensor_calibration = 1;
-        break;
-    case CALIBRATION_STOP:
-        ui8_cadence_sensor_calibration = 0;
-        break;
-    case CALIBRATION_SAVE:
-        val = (((uint16_t) value [2]) << 8) + ((uint16_t) value [1]);
-        tsdz_cfg.ui16_cadence_sensor_pulse_high_percentage_x10 = val;
-        tsdz_nvs_update_cfg();
-        break;
-    default:
-        ret_val[2] = 0xff;
-        break;
-    }
-    tsdz_bt_notify_command(ret_val, 3);
-    return ret_val[2];
 }
 
 // Start the OTA update process for ESP32 main app, ESP32 OTA STM8S Loader and STM8S Firmware
