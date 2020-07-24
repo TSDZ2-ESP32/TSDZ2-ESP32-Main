@@ -1023,7 +1023,7 @@ void tsdz_bt_update(void) {
             ret = esp_ble_gatts_send_indicate(gatts_profile_tab[TSDZ_PROFILE].gatts_if, gatts_profile_tab[TSDZ_PROFILE].conn_id, tsdz_handle_table[IDX_CHAR_VAL_STATUS],
                     sizeof(tsdz_status), (uint8_t *)(&tsdz_status), false);
         if (ret){
-            ESP_LOGE(TAG, "tsdz_bt_update, tsdz_status notifiation failed, error code = %x", ret);
+            ESP_LOGE(TAG, "tsdz_bt_update, tsdz_status notification failed, error code = %x", ret);
         }
         ret = esp_ble_gatts_get_attr_value(tsdz_handle_table[IDX_CHAR_CFG_DEBUG], &l, &value);
         if (ret==ESP_OK  && l==2 && (value[0]&0x01))
