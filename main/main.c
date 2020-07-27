@@ -49,20 +49,6 @@ void app_main(void)
 
     ESP_LOGI(TAG, "Start normal");
 
-    /*
-    ESP_LOGI(TAG, "PM cfg ...");
-	esp_pm_config_esp32_t pm_config = {
-	   .max_freq_mhz = 80,
-	   .min_freq_mhz = 80,
-	   .light_sleep_enable = true
-	};
-	esp_err_t ret;
-	if((ret = esp_pm_configure(&pm_config)) != ESP_OK) {
-		ESP_LOGE(TAG, "esp_pm_configure: %d", ret);
-	}
-	*/
-
-
     // wait 1 sec to avoid STM8 bootloader activation
     vTaskDelay(pdMS_TO_TICKS(1000));
 
