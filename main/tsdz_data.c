@@ -63,7 +63,7 @@ struct_tsdz_debug tsdz_debug = {
 // These are the initialization values stored into NVS at first startup.
 // Then the values are overwritten at the startup with the values stored into NVS
 struct_tsdz_cfg tsdz_cfg = {
-    .ui8_motor_type = 1,
+    .ui8_motor_inductance_x1048576 = 80,
     .ui8_motor_temperature_min_value_to_limit = 65,
     .ui8_motor_temperature_max_value_to_limit = 80,
     .ui8_motor_acceleration = 25,
@@ -475,7 +475,7 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
             break;
         case 2:
             // set motor type
-            lcd_os_message[5] = tsdz_cfg.ui8_motor_type;
+            lcd_os_message[5] = tsdz_cfg.ui8_motor_inductance_x1048576;
             // motor over temperature min value limit
             lcd_os_message[6] = tsdz_cfg.ui8_motor_temperature_min_value_to_limit;
             // motor over temperature max value limit
@@ -548,7 +548,7 @@ int tsdz_update_cfg(struct_tsdz_cfg *new_cfg) {
         ESP_LOGI(TAG,"tsdz_update_cfg NO CHANGE");
         return 0;
     } else {
-        if ((new_cfg->ui8_motor_type > 3) ||
+        if ((new_cfg->ui8_motor_inductance_x1048576 > 150) ||
                 (new_cfg->ui8_optional_ADC_function > 2) ||
                 (new_cfg->ui8_battery_cells_number > 15) ||
                 (new_cfg->ui8_cruise_mode_enabled > 1) ||

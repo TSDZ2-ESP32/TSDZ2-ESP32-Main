@@ -76,7 +76,7 @@ typedef struct _esp32_cfg {
 
 #pragma pack(1)
 typedef struct _tsdz_cfg {
-    volatile uint8_t ui8_motor_type;
+    volatile uint8_t ui8_motor_inductance_x1048576;
     volatile uint8_t ui8_motor_temperature_min_value_to_limit;
     volatile uint8_t ui8_motor_temperature_max_value_to_limit;
     volatile uint8_t ui8_motor_acceleration;
