@@ -37,7 +37,12 @@
 //          4=Error (value contains error code)
 #define CMD_STM8_OTA_STATUS         0x06
 
+#define CMD_HAL_CALIBRATION         0x07
+
 #define CMD_ESP32_CFG               0x08
+
+#define CMD_STREET_MODE             0x09
+
 
 int exec_command(uint8_t* value, uint16_t len);
 
