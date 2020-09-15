@@ -17,7 +17,7 @@
 
 static const char *TAG = "tsdz_nvs";
 
-static const uint8_t NVS_KEY_VAL = 0x02;
+static const uint8_t NVS_KEY_VAL = 3;
 
 // NVS Configuration Key values
 static const char* NVS_KEY       = "KEY";
@@ -81,13 +81,37 @@ static char* get_ota(void) {
 void tsdz_nvs_read_cfg(void) {
     esp_err_t err;
     uint8_t key;
+    size_t len;
     err = nvs_get_u8(my_handle, NVS_KEY, &key);
-    if((err != ESP_OK) || (NVS_KEY_VAL != key)) {
+    if((err != ESP_OK) || (key < 2)) {
         tsdz_nvs_write_default_cfg();
+    } else if (key == 2) {
+        // upgrade cfg from version 2
+        len = sizeof(tsdz_cfg);
+        err = nvs_get_blob(my_handle, TSDZ_CFG_KEY, &tsdz_cfg, &len);
+        if(err != ESP_OK)
+            ESP_LOGE(TAG, "FATAL ERROR: nvs_get_blob - Unable to upgrade cfg: 0x%x", err);
+        tsdz_cfg.ui8_max_speed = 45;
+        tsdz_cfg.ui8_street_max_speed = 25;
+        for (int i=0;i<4;i++) {
+            if (tsdz_cfg.ui8_power_assist_level[i] < 50)
+                tsdz_cfg.ui8_power_assist_level[i] = tsdz_cfg.ui8_power_assist_level[i] * 5;
+            else
+                tsdz_cfg.ui8_power_assist_level[i] = 250;
+        }
+        err = nvs_set_u8(my_handle, NVS_KEY, NVS_KEY_VAL);
+        if(err != ESP_OK)
+            ESP_LOGE(TAG, "FATAL ERROR: nvs_set_u8 - Unable to upgrade cfg: 0x%x", err);       err |= nvs_set_blob(my_handle, TSDZ_CFG_KEY, &tsdz_cfg, sizeof(tsdz_cfg));
+        err = nvs_set_blob(my_handle, TSDZ_CFG_KEY, &tsdz_cfg, sizeof(tsdz_cfg));
+        if(err != ESP_OK)
+            ESP_LOGE(TAG, "FATAL ERROR: nvs_set_blob - Unable to upgrade cfg: 0x%x", err);
+        err = nvs_commit(my_handle);
+        if(err != ESP_OK)
+            ESP_LOGE(TAG, "FATAL ERROR: nvs_commit - Unable to upgrade cfg: 0x%x", err);
     }
     ESP_LOGI(TAG,"NVS KEY = %x", NVS_KEY_VAL);
 
-    size_t len = sizeof(tsdz_cfg);
+    len = sizeof(tsdz_cfg);
     err = nvs_get_blob(my_handle, TSDZ_CFG_KEY, &tsdz_cfg, &len);
     if ((err != ESP_OK) || (len != sizeof(tsdz_cfg))) {
         ESP_LOGE(TAG, "FATAL ERROR: Unable to read TSDZ Configuration from nvs");

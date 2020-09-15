@@ -35,6 +35,7 @@
 static const char *TAG = "tsdz_main";
 
 void mainTask(void * pvParameters);
+static void changeData(void);
 
 TaskHandle_t mainTaskHandle = NULL;
 
@@ -139,6 +140,9 @@ void mainTask(void * pvParameters) {
         // TSDZ BT Service notification task
         // esp32_cfg.msg_sec contains the msg/sec configured frequency
         if (++tsdz_bt_task_count >= (1000 / MAIN_LOOP_SLEEP_MS / esp32_cfg.msg_sec)) {
+            if (ui8_hal_sensor_calibration) {
+                changeData();
+            }
             tsdz_bt_update();
             tsdz_bt_task_count = 0;
         }
@@ -149,4 +153,10 @@ void mainTask(void * pvParameters) {
             cycling_power_bt_task_count = 0;
         }
     }
+}
+
+static void changeData(void) {
+    tsdz_debug.i16_pcb_temperaturex10 = crank_revolutions;
+    tsdz_debug.ui8_rxc_errors = wheel_revolutions & 0xff;
+    tsdz_debug.ui8_rxl_errors = (wheel_revolutions >> 8) & 0xff;
 }

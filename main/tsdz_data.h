@@ -17,13 +17,14 @@
 #define THROTTLE_CONTROL                          2
 
 // OSF riding modes
-#define OFF_MODE                                  0
-#define POWER_ASSIST_MODE                         1
-#define TORQUE_ASSIST_MODE                        2
-#define CADENCE_ASSIST_MODE                       3
-#define eMTB_ASSIST_MODE                          4
-#define WALK_ASSIST_MODE                          5
-#define CRUISE_MODE                               6
+#define OFF_MODE                                0
+#define POWER_ASSIST_MODE                       1
+#define TORQUE_ASSIST_MODE                      2
+#define CADENCE_ASSIST_MODE                     3
+#define eMTB_ASSIST_MODE                        4
+#define WALK_ASSIST_MODE                        5
+#define CRUISE_MODE                             6
+#define HAL_SENSOR_CALIBRATION_MODE             7
 
 // OSF error codes
 #define NO_ERROR                                  0
@@ -66,6 +67,14 @@
 #define MAX_DS18B20_PIN                 31
 #define DEFAULT_DS18B20_PIN             4
 
+#define CALIBRATION_ON              1
+#define CALIBRATION_START           2
+#define CALIBRATION_STOP            0
+
+#define STREET_MODE_LCD_MASTER      0
+#define STREET_MODE_FORCE_OFF       1
+#define STREET_MODE_FORCE_ON        2
+
 #pragma pack(1)
 typedef struct _esp32_cfg {
     volatile uint8_t msg_sec;  // Android UI update speed
@@ -81,7 +90,8 @@ typedef struct _tsdz_cfg {
     volatile uint8_t ui8_motor_temperature_max_value_to_limit;
     volatile uint8_t ui8_motor_acceleration;
     volatile uint8_t ui8_dummy;
-    volatile uint16_t ui16_dummy;
+    volatile uint8_t ui8_max_speed;
+    volatile uint8_t ui8_street_max_speed;
     volatile uint8_t ui8_pedal_torque_per_10_bit_ADC_step_x100;
     volatile uint8_t ui8_optional_ADC_function;
     volatile uint8_t ui8_assist_without_pedal_rotation_threshold;
@@ -98,7 +108,7 @@ typedef struct _tsdz_cfg {
     volatile uint8_t ui8_li_io_cell_full_bars_x100;
     volatile uint8_t ui8_li_io_cell_one_bar_x100;
     volatile uint8_t ui8_li_io_cell_empty_x100;
-    volatile uint8_t ui8_street_mode_enabled;
+    volatile uint8_t ui8_dummy2;
     volatile uint8_t ui8_street_mode_power_limit_enabled;
     volatile uint8_t ui8_street_mode_throttle_enabled;
     volatile uint8_t ui8_street_mode_power_limit_div25;
@@ -156,6 +166,8 @@ extern uint32_t ui32_wh_x10_offset;
 extern uint32_t ui32_wh_x10;
 extern uint32_t wheel_revolutions;
 extern uint16_t crank_revolutions;
+extern volatile uint8_t ui8_hal_sensor_calibration;
+extern volatile uint8_t ui8_app_street_mode;
 
 void tsdz_data_update();
 void processLcdMessage(const uint8_t lcd_oem_message[]);

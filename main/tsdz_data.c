@@ -68,7 +68,8 @@ struct_tsdz_cfg tsdz_cfg = {
     .ui8_motor_temperature_max_value_to_limit = 80,
     .ui8_motor_acceleration = 25,
     .ui8_dummy = 0,
-    .ui16_dummy = 0,
+    .ui8_max_speed = 45,
+    .ui8_street_max_speed = 25,
     .ui8_pedal_torque_per_10_bit_ADC_step_x100 = 67,
     .ui8_optional_ADC_function = 0,
     .ui8_assist_without_pedal_rotation_threshold = 0,
@@ -84,14 +85,14 @@ struct_tsdz_cfg tsdz_cfg = {
     .ui8_li_io_cell_full_bars_x100 = 200,
     .ui8_li_io_cell_one_bar_x100 = 130,
     .ui8_li_io_cell_empty_x100 = 100,
-    .ui8_street_mode_enabled = 0,
+    .ui8_dummy2 = 0,
     .ui8_street_mode_power_limit_enabled = 0,
     .ui8_street_mode_throttle_enabled = 0,
     .ui8_street_mode_power_limit_div25 = 10,
     .ui8_street_mode_speed_limit = 25,
     .ui8_esp32_temp_control = 0,
     .ui8_cadence_assist_level = {40,60,80,100},
-    .ui8_power_assist_level = {5,10,20,30},
+    .ui8_power_assist_level = {25,50,100,150}, // %/2: 50%, 100%, 200%, 300%
     .ui8_torque_assist_level = {15,40,65,90},
     .ui8_eMTB_assist_sensitivity = {6,10,14,18},
     .ui8_walk_assist_level = {20,30,40,48},
@@ -105,7 +106,6 @@ uint8_t bike_locked = 0;
 // local OEM LCD values
 static uint8_t ui8_oem_wheel_diameter;
 static uint8_t ui8_oem_lights;
-static uint8_t ui8_oem_wheel_max_speed;
 
 // local wh calculation variables
 static uint16_t       ui16_battery_power_filtered_x10 = 0;
@@ -116,10 +116,12 @@ static uint8_t ui8_BatteryLevel = 0;
 static uint8_t ui8_BatteryError = 0;
 
 // global system variables
-uint32_t              ui32_wh_x10 = 0;
-uint32_t              ui32_wh_x10_offset = 0;
-uint32_t              wheel_revolutions;
-uint16_t              crank_revolutions;
+uint32_t            ui32_wh_x10 = 0;
+uint32_t            ui32_wh_x10_offset = 0;
+uint32_t            wheel_revolutions;
+uint16_t            crank_revolutions;
+volatile uint8_t    ui8_hal_sensor_calibration = 0;
+volatile uint8_t    ui8_app_street_mode = STREET_MODE_LCD_MASTER;
 
 
 void update_battery();
@@ -205,13 +207,22 @@ void processLcdMessage(const uint8_t lcd_oem_message[]) {
 
     // max speed
     // VLCD5:
-    // 25Km/h ON : sends 26 Km/h
-    // 25Km/h OFF : sends 45 Km/h
-    ui8_oem_wheel_max_speed = lcd_oem_message[5];
-    if (ui8_oem_wheel_max_speed > 26)
-        tsdz_status.ui8_street_mode_enabled = 0;
-    else
-        tsdz_status.ui8_street_mode_enabled = 1;
+    // 25Km/h ON : sends 26 (Km/h)
+    // 25Km/h OFF : sends 45 (Km/h)
+    switch (ui8_app_street_mode) {
+        case STREET_MODE_FORCE_OFF:
+            tsdz_status.ui8_street_mode_enabled = 0;
+            break;
+        case STREET_MODE_FORCE_ON:
+            tsdz_status.ui8_street_mode_enabled = 1;
+            break;
+        case STREET_MODE_LCD_MASTER:
+            if (lcd_oem_message[5] > 26)
+                tsdz_status.ui8_street_mode_enabled = 0;
+            else
+                tsdz_status.ui8_street_mode_enabled = 1;
+            break;
+    }
 }
 
 void getLCDMessage(uint8_t ct_oem_message[]) {
@@ -374,6 +385,7 @@ void processControllerMessage(const uint8_t ct_os_message[]) {
     }
 
     // Wheel revolutions
+
     wheel_revolutions = (((uint32_t) ct_os_message[20]) << 16) + (((uint32_t) ct_os_message[19]) << 8) + ((uint32_t) ct_os_message[18]);
 
     // pedal torque x100
@@ -402,6 +414,13 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
     // if bike locked reset to OFF_Mode
     if (bike_locked)
         lcd_os_message[2] = OFF_MODE;
+    else
+        lcd_os_message[2] = tsdz_status.ui8_riding_mode;
+
+    if (bike_locked)
+        lcd_os_message[2] = OFF_MODE;
+    else if (ui8_hal_sensor_calibration)
+        lcd_os_message[2] = HAL_SENSOR_CALIBRATION_MODE;
     else
         lcd_os_message[2] = tsdz_status.ui8_riding_mode;
 
@@ -442,6 +461,14 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
                 lcd_os_message[3] = 0;
             }
             break;
+        case HAL_SENSOR_CALIBRATION_MODE:
+            if (ui8_hal_sensor_calibration > 1) {
+                // send start calibration trigger
+                lcd_os_message[3] = 1;
+                ui8_hal_sensor_calibration = 1;
+            } else
+                lcd_os_message[3] = 0;
+            break;
         case CRUISE_MODE:
         default:
             lcd_os_message[3] = 0;
@@ -458,7 +485,10 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
             lcd_os_message[6] = (uint8_t) (tsdz_cfg.ui16_battery_low_voltage_cut_off_x10 >> 8);
 
             // wheel max speed
-            lcd_os_message[7] = ui8_oem_wheel_max_speed;
+            if (tsdz_status.ui8_street_mode_enabled)
+                lcd_os_message[7] = tsdz_cfg.ui8_street_max_speed;
+            else
+                lcd_os_message[7] = tsdz_cfg.ui8_max_speed;
 
             break;
         case 1:

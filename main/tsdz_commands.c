@@ -27,6 +27,8 @@
 static int command_ota(uint8_t* data, uint16_t len, uint8_t cmdType);
 static int get_app_version(void);
 static int command_esp32_cfg(uint8_t* value, uint16_t len);
+static int command_hal_calib(uint8_t* value, uint16_t len);
+static int command_street_mode(uint8_t* value, uint16_t len);
 
 int exec_command(uint8_t* value, uint16_t len) {
     switch (value[0]) {
@@ -38,6 +40,10 @@ int exec_command(uint8_t* value, uint16_t len) {
             return command_ota(&value[1], len-1, CMD_STM8S_OTA);
         case CMD_ESP32_CFG:
             return command_esp32_cfg(&value[1], len-1);
+        case CMD_HAL_CALIBRATION:
+            return command_hal_calib(&value[1], len-1);
+        case CMD_STREET_MODE:
+            return command_street_mode(&value[1], len-1);
     }
     uint8_t ret_val[2] = {value[0], 0xff};
     tsdz_bt_notify_command(ret_val, 2);
@@ -126,6 +132,41 @@ static int get_app_version(void) {
     	len = 19;
 
     tsdz_bt_notify_command((uint8_t*)ret, len);
+    return 0;
+}
+
+// Control the cadence sensor calibration procedure Start/Stop/Save
+static int command_hal_calib(uint8_t* value, uint16_t len) {
+    uint8_t ret_val[3] = {CMD_HAL_CALIBRATION,value[0],0};
+    switch (value[0]) {
+        case CALIBRATION_ON:
+            ui8_hal_sensor_calibration = 1;
+            break;
+        case CALIBRATION_START:
+            ui8_hal_sensor_calibration = 2;
+            break;
+        case CALIBRATION_STOP:
+        default:
+            ui8_hal_sensor_calibration = 0;
+    }
+    tsdz_bt_notify_command(ret_val, 3);
+    return 0;
+}
+
+static int command_street_mode(uint8_t* value, uint16_t len) {
+    uint8_t ret_val[2] = {CMD_STREET_MODE,0};
+    switch (value[0]) {
+        case STREET_MODE_FORCE_OFF:
+            ui8_app_street_mode = STREET_MODE_FORCE_OFF;
+            break;
+        case STREET_MODE_FORCE_ON:
+            ui8_app_street_mode = STREET_MODE_FORCE_ON;
+            break;
+        case STREET_MODE_LCD_MASTER:
+        default:
+            ui8_app_street_mode = STREET_MODE_LCD_MASTER;
+    }
+    tsdz_bt_notify_command(ret_val, 2);
     return 0;
 }
 
