@@ -43,6 +43,7 @@
 
 #define CMD_STREET_MODE             0x09
 
+#define CMD_ASSIST_MODE             0x0A
 
 int exec_command(uint8_t* value, uint16_t len);
 

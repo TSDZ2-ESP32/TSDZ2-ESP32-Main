@@ -75,6 +75,12 @@
 #define STREET_MODE_FORCE_OFF       1
 #define STREET_MODE_FORCE_ON        2
 
+#define ASSIST_MODE_LCD_MASTER      0
+#define ASSIST_MODE_FORCE_POWER     1
+#define ASSIST_MODE_FORCE_EMTB      2
+#define ASSIST_MODE_FORCE_TORQUE    3
+#define ASSIST_MODE_FORCE_CADENCE   4
+
 #pragma pack(1)
 typedef struct _esp32_cfg {
     volatile uint8_t msg_sec;  // Android UI update speed
@@ -168,6 +174,7 @@ extern uint32_t wheel_revolutions;
 extern uint16_t crank_revolutions;
 extern volatile uint8_t ui8_hal_sensor_calibration;
 extern volatile uint8_t ui8_app_street_mode;
+extern volatile uint8_t ui8_app_assist_mode;
 
 void tsdz_data_update();
 void processLcdMessage(const uint8_t lcd_oem_message[]);

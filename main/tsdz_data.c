@@ -122,6 +122,7 @@ uint32_t            wheel_revolutions;
 uint16_t            crank_revolutions;
 volatile uint8_t    ui8_hal_sensor_calibration = 0;
 volatile uint8_t    ui8_app_street_mode = STREET_MODE_LCD_MASTER;
+volatile uint8_t    ui8_app_assist_mode = ASSIST_MODE_LCD_MASTER;
 
 
 void update_battery();
@@ -185,18 +186,34 @@ void processLcdMessage(const uint8_t lcd_oem_message[]) {
     }
 
     // check the riding mode
-    switch (ui8_oem_wheel_diameter) {
-        case 27:
-            tsdz_status.ui8_riding_mode = TORQUE_ASSIST_MODE;
+    switch (ui8_app_assist_mode) {
+        case ASSIST_MODE_LCD_MASTER:
+            switch (ui8_oem_wheel_diameter) {
+                case 27:
+                    tsdz_status.ui8_riding_mode = TORQUE_ASSIST_MODE;
+                    break;
+                case 28:
+                    tsdz_status.ui8_riding_mode = CADENCE_ASSIST_MODE;
+                    break;
+                case 29:
+                    tsdz_status.ui8_riding_mode = eMTB_ASSIST_MODE;
+                    break;
+                default:
+                    tsdz_status.ui8_riding_mode = POWER_ASSIST_MODE;
+            }
             break;
-        case 28:
-            tsdz_status.ui8_riding_mode = CADENCE_ASSIST_MODE;
+        case ASSIST_MODE_FORCE_POWER:
+            tsdz_status.ui8_riding_mode = POWER_ASSIST_MODE;
             break;
-        case 29:
+        case ASSIST_MODE_FORCE_EMTB:
             tsdz_status.ui8_riding_mode = eMTB_ASSIST_MODE;
             break;
-        default:
-            tsdz_status.ui8_riding_mode = POWER_ASSIST_MODE;
+        case ASSIST_MODE_FORCE_TORQUE:
+            tsdz_status.ui8_riding_mode = TORQUE_ASSIST_MODE;
+            break;
+        case ASSIST_MODE_FORCE_CADENCE:
+            tsdz_status.ui8_riding_mode = CADENCE_ASSIST_MODE;
+            break;
     }
 
 
@@ -207,7 +224,7 @@ void processLcdMessage(const uint8_t lcd_oem_message[]) {
 
     // max speed
     // VLCD5:
-    // 25Km/h ON : sends 26 (Km/h)
+    // 25Km/h ON  : sends 26 (Km/h)
     // 25Km/h OFF : sends 45 (Km/h)
     switch (ui8_app_street_mode) {
         case STREET_MODE_FORCE_OFF:
@@ -227,7 +244,7 @@ void processLcdMessage(const uint8_t lcd_oem_message[]) {
 
 void getLCDMessage(uint8_t ct_oem_message[]) {
 
-    // used to set the Temerature Error blink speed according to the temperature
+    // used to set the Temperature Error blink speed according to the temperature
     static uint8_t temperatureError = 0;
     static uint8_t temperatureErrorOn = 0;
     static uint8_t temperatureErrorCounter = 0;
