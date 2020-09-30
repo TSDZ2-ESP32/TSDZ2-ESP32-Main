@@ -29,6 +29,7 @@ static int get_app_version(void);
 static int command_esp32_cfg(uint8_t* value, uint16_t len);
 static int command_hal_calib(uint8_t* value, uint16_t len);
 static int command_street_mode(uint8_t* value, uint16_t len);
+static int command_assist_mode(uint8_t* value, uint16_t len);
 
 int exec_command(uint8_t* value, uint16_t len) {
     switch (value[0]) {
@@ -44,6 +45,8 @@ int exec_command(uint8_t* value, uint16_t len) {
             return command_hal_calib(&value[1], len-1);
         case CMD_STREET_MODE:
             return command_street_mode(&value[1], len-1);
+        case CMD_ASSIST_MODE:
+            return command_assist_mode(&value[1], len-1);
     }
     uint8_t ret_val[2] = {value[0], 0xff};
     tsdz_bt_notify_command(ret_val, 2);
@@ -170,3 +173,25 @@ static int command_street_mode(uint8_t* value, uint16_t len) {
     return 0;
 }
 
+static int command_assist_mode(uint8_t* value, uint16_t len) {
+    uint8_t ret_val[2] = {CMD_ASSIST_MODE,0};
+    switch (value[0]) {
+        case ASSIST_MODE_FORCE_POWER:
+            ui8_app_assist_mode = ASSIST_MODE_FORCE_POWER;
+            break;
+        case ASSIST_MODE_FORCE_EMTB:
+            ui8_app_assist_mode = ASSIST_MODE_FORCE_EMTB;
+            break;
+        case ASSIST_MODE_FORCE_TORQUE:
+            ui8_app_assist_mode = ASSIST_MODE_FORCE_TORQUE;
+            break;
+        case ASSIST_MODE_FORCE_CADENCE:
+            ui8_app_assist_mode = ASSIST_MODE_FORCE_CADENCE;
+            break;
+        case ASSIST_MODE_LCD_MASTER:
+        default:
+            ui8_app_assist_mode = ASSIST_MODE_LCD_MASTER;
+    }
+    tsdz_bt_notify_command(ret_val, 2);
+    return 0;
+}
