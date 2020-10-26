@@ -10,7 +10,7 @@
 
 char gwAddress[16];
 
-void wifi_init_sta(char* ssid, char* pwd);
+bool wifi_init_sta(char* ssid, char* pwd);
 void tsdz_wifi_deinit(void);
 
 #endif /* MAIN_TSDZ_WIFI_H_ */
