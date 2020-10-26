@@ -42,8 +42,6 @@ static char* ssid;
 static char* pwd;
 static int   port;
 
-static uint8_t disconnect = 0;
-
 static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
     switch(evt->event_id) {
     case HTTP_EVENT_ERROR:
@@ -78,13 +76,18 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
 // OTA_0 and OTA_1 are the partition for the main app, OTA_2 is the partition of the STM8 Loader App
 static void esp_ota_download()
 {
-    ESP_LOGI(TAG, "esp_ota_download - ssid:%s, pwd:%s, port:%d", ssid, pwd, port);
-    wifi_init_sta(ssid, pwd);
-
     esp_err_t err;
     uint8_t ret[2] = {CMD_ESP_OTA_STATUS, 0};
+    char *buffer = NULL;
 
-    char *buffer = malloc(READ_BUFFER_SIZE);
+    ESP_LOGI(TAG, "esp_ota_download - ssid:%s, pwd:%s, port:%d", ssid, pwd, port);
+    if (!wifi_init_sta(ssid, pwd)) {
+    	ESP_LOGE(TAG, "Connection to WiFi AP failed");
+		ret[1] = 10;
+		goto exit;
+	}
+
+    buffer = malloc(READ_BUFFER_SIZE);
     if (buffer == NULL) {
         ESP_LOGE(TAG, "Cannot malloc http receive buffer");
         ret[1] = 1;
@@ -191,14 +194,9 @@ static void esp_ota_download()
     exit:
     if (buffer != NULL)
         free(buffer);
+
     ESP_LOGI(TAG, "Disconnecting Wifi...");
-    disconnect = 1;
-    esp_wifi_disconnect();
-    vTaskDelay(300 / portTICK_PERIOD_MS);
-    esp_wifi_stop();
-    vTaskDelay(300 / portTICK_PERIOD_MS);
-    esp_wifi_deinit();
-    vTaskDelay(300 / portTICK_PERIOD_MS);
+    tsdz_wifi_deinit();
 
     ESP_LOGI(TAG, "Sending end OTA Status...");
     tsdz_bt_notify_command(ret, 2);

@@ -780,7 +780,11 @@ void start_ota_stm8(char* wifiCfg) {
 	}
 	
 	// connect to the Phone Access Point
-    wifi_init_sta(ssid, pwd);
+    if (!wifi_init_sta(ssid, pwd)) {
+    	ESP_LOGE(TAG, "Connection to WiFi AP failed");
+		ret[2] = 13;
+		goto error;
+	}
     ESP_LOGI(TAG, "WiFi started");
 
     snprintf(url, 32, "http://%s:%d", gwAddress, port);
