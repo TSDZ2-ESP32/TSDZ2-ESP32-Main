@@ -2,7 +2,7 @@
  * tsdz_tmp112.c
  *
  *  Created on: 13 feb 2020
- *      Author: SO000228
+ *      Author: Max
  */
 #define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 

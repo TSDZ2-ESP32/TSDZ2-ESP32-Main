@@ -2,7 +2,7 @@
  * tsdz_ds18b20.h
  *
  *  Created on: 28 ott 2019
- *      Author: SO000228
+ *      Author: Max
  */
 
 #ifndef MAIN_TSDZ_DS18B20_H_
