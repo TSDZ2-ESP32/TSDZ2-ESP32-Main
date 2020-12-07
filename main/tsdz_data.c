@@ -158,18 +158,12 @@ void processLcdMessage(const uint8_t lcd_oem_message[]) {
             tsdz_status.ui8_assist_level = 1;
             break;
         case OEM_ASSIST_LEVEL0:
-        default:
             tsdz_status.ui8_assist_level = 0;
             break;
     }
 
     // wheel diameter
     ui8_oem_wheel_diameter = lcd_oem_message[3];
-
-    if (tsdz_status.ui8_assist_level == 0) {
-        tsdz_status.ui8_riding_mode = POWER_ASSIST_MODE;
-        goto skip;
-    }
 
     // check if long hold down button
     if (lcd_oem_message[1] & 0x20) {
@@ -429,12 +423,7 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
 
     // riding mode
     // if bike locked reset to OFF_Mode
-    if (bike_locked)
-        lcd_os_message[2] = OFF_MODE;
-    else
-        lcd_os_message[2] = tsdz_status.ui8_riding_mode;
-
-    if (bike_locked)
+    if (bike_locked || (tsdz_status.ui8_assist_level == 0))
         lcd_os_message[2] = OFF_MODE;
     else if (ui8_hal_sensor_calibration)
         lcd_os_message[2] = HAL_SENSOR_CALIBRATION_MODE;
@@ -487,6 +476,7 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
                 lcd_os_message[3] = 0;
             break;
         case CRUISE_MODE:
+        case OFF_MODE:
         default:
             lcd_os_message[3] = 0;
             break;
