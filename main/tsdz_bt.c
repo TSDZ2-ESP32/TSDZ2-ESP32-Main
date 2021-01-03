@@ -1037,7 +1037,7 @@ void tsdz_bt_update(void) {
 
 
 void cycling_bt_update(void) {
-    static uint16_t flags = (FLAG_WHEEL_REVOLUTION_DATA_PRESENT +
+    static const uint16_t flags = (FLAG_WHEEL_REVOLUTION_DATA_PRESENT +
     		FLAG_CRANK_REVOLUTION_DATA_PRESENT +
 			FLAG_ACCUMULATED_ENERGY_PRESENT);
     static uint32_t dCumulativeWheelRev = 0;
