@@ -27,9 +27,9 @@
 static int command_ota(uint8_t* data, uint16_t len, uint8_t cmdType);
 static int get_app_version(void);
 static int command_esp32_cfg(uint8_t* value, uint16_t len);
-static int command_hal_calib(uint8_t* value, uint16_t len);
 static int command_street_mode(uint8_t* value, uint16_t len);
 static int command_assist_mode(uint8_t* value, uint16_t len);
+static int command_motor_calibration(uint8_t* value, uint16_t len);
 
 int exec_command(uint8_t* value, uint16_t len) {
     switch (value[0]) {
@@ -41,12 +41,12 @@ int exec_command(uint8_t* value, uint16_t len) {
             return command_ota(&value[1], len-1, CMD_STM8S_OTA);
         case CMD_ESP32_CFG:
             return command_esp32_cfg(&value[1], len-1);
-        case CMD_HAL_CALIBRATION:
-            return command_hal_calib(&value[1], len-1);
         case CMD_STREET_MODE:
             return command_street_mode(&value[1], len-1);
         case CMD_ASSIST_MODE:
             return command_assist_mode(&value[1], len-1);
+        case CMD_MOTOR_CALIBRATION:
+            return command_motor_calibration(&value[1], len-1);
     }
     uint8_t ret_val[2] = {value[0], 0xff};
     tsdz_bt_notify_command(ret_val, 2);
@@ -138,23 +138,6 @@ static int get_app_version(void) {
     return 0;
 }
 
-// Control the cadence sensor calibration procedure Start/Stop/Save
-static int command_hal_calib(uint8_t* value, uint16_t len) {
-    uint8_t ret_val[3] = {CMD_HAL_CALIBRATION,value[0],0};
-    switch (value[0]) {
-        case CALIBRATION_ON:
-            ui8_hal_sensor_calibration = 1;
-            break;
-        case CALIBRATION_START:
-            ui8_hal_sensor_calibration = 2;
-            break;
-        case CALIBRATION_STOP:
-        default:
-            ui8_hal_sensor_calibration = 0;
-    }
-    tsdz_bt_notify_command(ret_val, 3);
-    return 0;
-}
 
 static int command_street_mode(uint8_t* value, uint16_t len) {
     uint8_t ret_val[2] = {CMD_STREET_MODE,0};
@@ -176,22 +159,41 @@ static int command_street_mode(uint8_t* value, uint16_t len) {
 static int command_assist_mode(uint8_t* value, uint16_t len) {
     uint8_t ret_val[2] = {CMD_ASSIST_MODE,0};
     switch (value[0]) {
-        case ASSIST_MODE_FORCE_POWER:
-            ui8_app_assist_mode = ASSIST_MODE_FORCE_POWER;
+        case APP_ASSIST_MODE_FORCE_POWER:
+            ui8_app_assist_mode = APP_ASSIST_MODE_FORCE_POWER;
             break;
-        case ASSIST_MODE_FORCE_EMTB:
-            ui8_app_assist_mode = ASSIST_MODE_FORCE_EMTB;
+        case APP_ASSIST_MODE_FORCE_EMTB:
+            ui8_app_assist_mode = APP_ASSIST_MODE_FORCE_EMTB;
             break;
-        case ASSIST_MODE_FORCE_TORQUE:
-            ui8_app_assist_mode = ASSIST_MODE_FORCE_TORQUE;
+        case APP_ASSIST_MODE_FORCE_TORQUE:
+            ui8_app_assist_mode = APP_ASSIST_MODE_FORCE_TORQUE;
             break;
-        case ASSIST_MODE_FORCE_CADENCE:
-            ui8_app_assist_mode = ASSIST_MODE_FORCE_CADENCE;
+        case APP_ASSIST_MODE_FORCE_CADENCE:
+            ui8_app_assist_mode = APP_ASSIST_MODE_FORCE_CADENCE;
             break;
-        case ASSIST_MODE_LCD_MASTER:
+        case APP_ASSIST_MODE_LCD_MASTER:
         default:
-            ui8_app_assist_mode = ASSIST_MODE_LCD_MASTER;
+            ui8_app_assist_mode = APP_ASSIST_MODE_LCD_MASTER;
     }
     tsdz_bt_notify_command(ret_val, 2);
     return 0;
+}
+
+static int command_motor_calibration(uint8_t* value, uint16_t len) {
+    static uint8_t ui8_app_assist_mode_old = APP_ASSIST_MODE_LCD_MASTER;
+    uint8_t ret_val[3] = {CMD_MOTOR_CALIBRATION, value[0], 0};
+
+    if (value[0] == TEST_START) {
+        if (len == 3) {
+            ui8_app_assist_mode_old = ui8_app_assist_mode;
+            ui8_app_assist_mode = APP_ASSIST_MODE_MOTOR_CALIB;
+            ui8_app_assist_parameter = value[1];
+            ui8_app_rotor_angle_adj = value[2];
+        } else
+            ret_val[2] = 1;
+    } else {
+        ui8_app_assist_mode = ui8_app_assist_mode_old;
+    }
+    tsdz_bt_notify_command(ret_val, 3);
+    return ret_val[2];
 }

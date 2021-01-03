@@ -39,8 +39,8 @@ static uint8_t ct_state_machine = 0;
 static uint8_t lcd_send_msg[CT_OEM_MSG_BYTES];
 static uint8_t ct_send_msg[LCD_OS_MSG_BYTES];
 
-static TickType_t last_lcd_msg_tick;
-static TickType_t last_ct_msg_tick;
+static TickType_t last_lcd_msg_tick = 0;
+static TickType_t last_ct_msg_tick = 0;
 static uint8_t rxc_errors_cnt = 0;
 static uint8_t rxl_errors_cnt = 0;
 
@@ -134,6 +134,16 @@ void tsdz_uart_task(void) {
             //ESP_LOGI(TAG, "Controller Message Sent: %s", bytesToHex(ct_send_msg,LCD_OS_MSG_BYTES));
         }
     }
+
+    // Update Communication status bits of tsdz_status.ui8_system_state
+    if ((xTaskGetTickCount() - last_ct_msg_tick) < pdMS_TO_TICKS(500))
+        tsdz_status.ui8_system_state &= ~ERROR_CONTROLLER_COMMUNICATION;
+    else
+        tsdz_status.ui8_system_state |= ERROR_CONTROLLER_COMMUNICATION;
+    if ((xTaskGetTickCount() - last_lcd_msg_tick) < pdMS_TO_TICKS(500))
+        tsdz_status.ui8_system_state &= ~ERROR_LCD_COMMUNICATION;
+    else
+        tsdz_status.ui8_system_state |= ERROR_LCD_COMMUNICATION;
 }
 
 bool lcdMessageReceived(void) {

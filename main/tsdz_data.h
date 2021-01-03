@@ -24,9 +24,12 @@
 #define eMTB_ASSIST_MODE                        4
 #define WALK_ASSIST_MODE                        5
 #define CRUISE_MODE                             6
-#define HAL_SENSOR_CALIBRATION_MODE             7
+#define MOTOR_CALIBRATION_MODE                  7
 
-// OSF error codes
+// Error Codes of tsdz_status.ui8_controller_system_state
+// The bits 0-6 contains the motors error code
+// Bits 7-8 contains the communication status with LCD and Controller
+#define ERROR_MOTOR_MASK                          0x3f // Mask bits for Motor errors
 #define NO_ERROR                                  0
 #define ERROR_MOTOR_BLOCKED                       1
 #define ERROR_TORQUE_SENSOR                       2
@@ -37,6 +40,9 @@
 #define ERROR_OVERVOLTAGE                         8
 #define ERROR_TEMPERATURE_LIMIT                   9
 #define ERROR_TEMPERATURE_MAX                     10
+#define ERROR_COMMUNICATION_MASK                  0xc0 // Mask bits for Communication errors
+#define ERROR_CONTROLLER_COMMUNICATION            0x80 // Bit 7 set if controller communication is missing
+#define ERROR_LCD_COMMUNICATION                   0x40 // Bit 6 set if lcd communication is missing
 
 #define WALK_ASSIST_THRESHOLD_SPEED_X10           80 // 8.0 Km/h
 #define CRUISE_THRESHOLD_SPEED_X10                90 // 9.0 Km/h
@@ -52,7 +58,7 @@
 // N.B.: E01, E05, E07 are not available on XH18 display
 #define OEM_NO_ERROR                            0
 #define OEM_ERROR_TORQUE_SENSOR                 2 // E02
-#define OEM_ERROR_TBD                           3 // E03
+#define OEM_ERROR_CONTROLLER_FAILURE            3 // E03
 #define OEM_ERROR_MOTOR_BLOCKED                 4 // E04
 #define OEM_ERROR_OVERTEMPERATURE               6 // E06
 #define OEM_ERROR_OVERVOLTAGE                   8 // E08
@@ -67,19 +73,16 @@
 #define MAX_DS18B20_PIN                 31
 #define DEFAULT_DS18B20_PIN             4
 
-#define CALIBRATION_ON              1
-#define CALIBRATION_START           2
-#define CALIBRATION_STOP            0
-
 #define STREET_MODE_LCD_MASTER      0
 #define STREET_MODE_FORCE_OFF       1
 #define STREET_MODE_FORCE_ON        2
 
-#define ASSIST_MODE_LCD_MASTER      0
-#define ASSIST_MODE_FORCE_POWER     1
-#define ASSIST_MODE_FORCE_EMTB      2
-#define ASSIST_MODE_FORCE_TORQUE    3
-#define ASSIST_MODE_FORCE_CADENCE   4
+#define APP_ASSIST_MODE_LCD_MASTER      0
+#define APP_ASSIST_MODE_FORCE_POWER     1
+#define APP_ASSIST_MODE_FORCE_EMTB      2
+#define APP_ASSIST_MODE_FORCE_TORQUE    3
+#define APP_ASSIST_MODE_FORCE_CADENCE   4
+#define APP_ASSIST_MODE_MOTOR_CALIB     5
 
 #pragma pack(1)
 typedef struct _esp32_cfg {
@@ -139,7 +142,7 @@ typedef struct _tsdz_status {
     volatile uint16_t ui16_pedal_power_x10;
     volatile uint16_t ui16_battery_voltage_x1000;
     volatile uint8_t ui8_battery_current_x10;
-    volatile uint8_t ui8_controller_system_state;
+    volatile uint8_t ui8_system_state;
     volatile uint8_t ui8_braking;
     volatile uint16_t ui16_battery_wh;
     volatile uint8_t ui8_street_mode_enabled;
@@ -160,6 +163,17 @@ typedef struct _tsdz_debug {
     volatile uint8_t ui8_rxl_errors;
 } struct_tsdz_debug;
 
+#pragma pack(1)
+typedef struct _tsdz_hall {
+    volatile uint8_t  ui8_cmd;
+    volatile uint16_t ui16_hall_1;
+    volatile uint16_t ui16_hall_2;
+    volatile uint16_t ui16_hall_3;
+    volatile uint16_t ui16_hall_4;
+    volatile uint16_t ui16_hall_5;
+    volatile uint16_t ui16_hall_6;
+} struct_tsdz_hall;
+
 extern uint8_t bike_locked;
 
 extern const uint32_t bt_passkey;
@@ -167,14 +181,17 @@ extern struct_esp32_cfg esp32_cfg;
 extern struct_tsdz_cfg tsdz_cfg;
 extern struct_tsdz_status tsdz_status;
 extern struct_tsdz_debug tsdz_debug;
+extern struct_tsdz_hall tsdz_hall;
+
 extern uint8_t stm8_fw_version;
 extern uint32_t ui32_wh_x10_offset;
 extern uint32_t ui32_wh_x10;
 extern uint32_t wheel_revolutions;
 extern uint16_t crank_revolutions;
-extern volatile uint8_t ui8_hal_sensor_calibration;
 extern volatile uint8_t ui8_app_street_mode;
 extern volatile uint8_t ui8_app_assist_mode;
+extern volatile uint8_t ui8_app_assist_parameter;
+extern volatile uint8_t ui8_app_rotor_angle_adj;
 
 void tsdz_data_update();
 void processLcdMessage(const uint8_t lcd_oem_message[]);
