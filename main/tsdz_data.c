@@ -140,6 +140,13 @@ volatile uint8_t    ui8_app_rotor_angle_adj = 0;
 void update_battery();
 void update_energy(void);
 
+void tsdz_data_disconnect_actions() {
+	if (ui8_app_assist_mode == APP_ASSIST_MODE_MOTOR_CALIB) {
+		ui8_app_assist_mode = APP_ASSIST_MODE_LCD_MASTER;
+		ESP_LOGI(TAG, "ui8_app_assist_mode = %d", ui8_app_assist_mode);
+	}
+}
+
 // called every 100 ms
 void tsdz_data_update() {
     static uint32_t lastUpdateValue;
@@ -153,7 +160,6 @@ void tsdz_data_update() {
         tsdz_nvs_update_whOffset();
     }
 }
-
 
 void processLcdMessage(const uint8_t lcd_oem_message[]) {
     switch(lcd_oem_message[1] & 0x5E) {
@@ -283,7 +289,7 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
         ui8_error_code = OEM_ERROR_MOTOR_BLOCKED;
     else if ((tsdz_status.ui8_system_state & ERROR_MOTOR_MASK) == ERROR_TORQUE_SENSOR)
         ui8_error_code = OEM_ERROR_TORQUE_SENSOR;
-    else if ((tsdz_status.ui8_system_state & ERROR_CONTROLLER_COMMUNICATION) != 0)
+    else if ((tsdz_status.ui8_system_state & ERROR_CONTROLLER_COMMUNICATION) == ERROR_CONTROLLER_COMMUNICATION)
         ui8_error_code = OEM_ERROR_CONTROLLER_FAILURE;
     else if (ui8_BatteryError == BATTERY_OVERVOLTAGE)
         ui8_error_code = OEM_ERROR_OVERVOLTAGE;

@@ -107,8 +107,10 @@ void tsdz_uart_task(void) {
 	        rxl_errors_cnt++;
 			tsdz_debug.ui8_rxl_errors++;
 		}
-        if ((rxl_errors_cnt <= 2) && ((xTaskGetTickCount() - last_ct_msg_tick) < pdMS_TO_TICKS(500))) {
-        	// Send message to controller only if a LCD message was received in the last 500ms
+
+        // if ((rxl_errors_cnt <= 2) && ((xTaskGetTickCount() - last_ct_msg_tick) < pdMS_TO_TICKS(500))) {
+		if (rxl_errors_cnt <= 2) {
+        	// Send message to LCD only if a controller message was received in the last 500ms
             getLCDMessage(lcd_send_msg);
             uart_write_bytes(LCD_UART, (char*)lcd_send_msg, (size_t)CT_OEM_MSG_BYTES);
             //ESP_LOGI(TAG, "LCD Message Sent: %s", bytesToHex(lcd_send_msg,CT_OEM_MSG_BYTES));
