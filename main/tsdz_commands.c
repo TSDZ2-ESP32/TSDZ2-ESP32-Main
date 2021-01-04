@@ -24,6 +24,8 @@
 #define GET                         0
 #define SET                         1
 
+static const char *TAG = "tsdz_commands";
+
 static int command_ota(uint8_t* data, uint16_t len, uint8_t cmdType);
 static int get_app_version(void);
 static int command_esp32_cfg(uint8_t* value, uint16_t len);
@@ -180,19 +182,19 @@ static int command_assist_mode(uint8_t* value, uint16_t len) {
 }
 
 static int command_motor_calibration(uint8_t* value, uint16_t len) {
-    static uint8_t ui8_app_assist_mode_old = APP_ASSIST_MODE_LCD_MASTER;
     uint8_t ret_val[3] = {CMD_MOTOR_CALIBRATION, value[0], 0};
 
     if (value[0] == TEST_START) {
         if (len == 3) {
-            ui8_app_assist_mode_old = ui8_app_assist_mode;
+        	ESP_LOGI(TAG, "Command Received: Motor Test Start");
             ui8_app_assist_mode = APP_ASSIST_MODE_MOTOR_CALIB;
             ui8_app_assist_parameter = value[1];
             ui8_app_rotor_angle_adj = value[2];
         } else
             ret_val[2] = 1;
     } else {
-        ui8_app_assist_mode = ui8_app_assist_mode_old;
+    	ESP_LOGI(TAG, "Command Received: Motor Test Stop");
+        ui8_app_assist_mode = APP_ASSIST_MODE_LCD_MASTER;
     }
     tsdz_bt_notify_command(ret_val, 3);
     return ret_val[2];

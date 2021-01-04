@@ -768,6 +768,7 @@ static void gatts_tsdz_profile_handler(esp_gatts_cb_event_t event, esp_gatt_if_t
     case ESP_GATTS_DISCONNECT_EVT:
     	gatts_profile_tab[TSDZ_PROFILE].conn_id = 0xffff;
         ESP_LOGI(TAG, "T ESP_GATTS_DISCONNECT_EVT, reason = 0x%x", param->disconnect.reason);
+        tsdz_data_disconnect_actions();
         esp_ble_gap_start_advertising(&adv_params);
         break;
     case ESP_GATTS_CREAT_ATTR_TAB_EVT:{
@@ -836,7 +837,7 @@ static void gatts_cycling_profile_handler(esp_gatts_cb_event_t event, esp_gatt_i
         gatts_profile_tab[CYCLING_POWER_PROFILE].conn_id = param->connect.conn_id;
         break;
     case ESP_GATTS_DISCONNECT_EVT:
-        ESP_LOGI(TAG, "C ESP_GATTS_DISCONNECT_EVT");
+        ESP_LOGI(TAG, "C ESP_GATTS_DISCONNECT_EVT, reason = 0x%x", param->disconnect.reason);
     	gatts_profile_tab[CYCLING_POWER_PROFILE].conn_id = 0xffff;
         break;
     case ESP_GATTS_CREAT_ATTR_TAB_EVT:{

@@ -199,5 +199,6 @@ void getLCDMessage(uint8_t ct_oem_message[]);
 void processControllerMessage(const uint8_t ct_os_message[]);
 void getControllerMessage(uint8_t lcd_os_message[]);
 int tsdz_update_cfg(struct_tsdz_cfg *new_cfg);
+void tsdz_data_disconnect_actions();
 
 #endif /* MAIN_TSDZ_DATA_H_ */
