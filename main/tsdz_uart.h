@@ -24,7 +24,7 @@
 #define LCD_OEM_MSG_BYTES   7
 #define CT_OS_MSG_BYTES     29
 #define CT_OEM_MSG_BYTES    9
-#define LCD_OS_MSG_BYTES    10
+#define LCD_OS_MSG_BYTES    13
 
 void tsdz_uart_init(void);
 void tsdz_uart_task(void);

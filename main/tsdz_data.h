@@ -68,7 +68,7 @@
 
 #define MIN_MSG_SEC                     1 // (1 notification/sec)
 #define MAX_MSG_SEC                     5 // (5 notification/sec)
-#define DEFAULT_MSG_SEC                 2 // (2 notification/sec)
+#define DEFAULT_MSG_SEC                 3 // (2 notification/sec)
 #define MIN_DS18B20_PIN                 3
 #define MAX_DS18B20_PIN                 31
 #define DEFAULT_DS18B20_PIN             4
@@ -130,6 +130,9 @@ typedef struct _tsdz_cfg {
     volatile uint8_t ui8_walk_assist_level[4];
     volatile uint8_t ui8_torque_offset_fix;
     volatile uint16_t ui16_torque_offset_value;
+    volatile uint8_t  ui8_hall_ref_angles[6];
+    volatile uint8_t  ui8_hall_counter_offset_up;
+    volatile uint8_t  ui8_hall_counter_offset_down;
 } struct_tsdz_cfg;
 
 #pragma pack(1)
@@ -181,6 +184,9 @@ extern struct_esp32_cfg esp32_cfg;
 extern struct_tsdz_cfg tsdz_cfg;
 extern struct_tsdz_status tsdz_status;
 extern struct_tsdz_debug tsdz_debug;
+
+// Hall Calibration data message
+extern uint8_t hall_calib_data_valid;
 extern struct_tsdz_hall tsdz_hall;
 
 extern uint8_t stm8_fw_version;
