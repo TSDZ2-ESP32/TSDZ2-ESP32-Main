@@ -60,8 +60,9 @@ struct_tsdz_debug tsdz_debug = {
 	.ui8_rxl_errors = 0
 };
 
+uint8_t hall_calib_data_valid = 0;
 struct_tsdz_hall tsdz_hall = {
-    .ui8_cmd = CMD_HAL_CALIBRATION,
+    .ui8_cmd = CMD_HALL_DATA,
     .ui16_hall_1 = 0,
     .ui16_hall_2 = 0,
     .ui16_hall_3 = 0,
@@ -84,11 +85,12 @@ struct_tsdz_cfg tsdz_cfg = {
     .ui8_pedal_torque_per_10_bit_ADC_step_x100 = 67,
     .ui8_optional_ADC_function = 0,
     .ui8_assist_without_pedal_rotation_threshold = 0,
+	.ui8_lights_configuration = 0,
     .ui16_wheel_perimeter = 2300,
     .ui8_cruise_mode_enabled = 0,
     .ui16_battery_voltage_reset_wh_counter_x10 = 416, // 41.6V
     .ui8_battery_max_current = 15,
-    .ui8_target_max_battery_power_div25 = 10,
+    .ui8_target_max_battery_power_div25 = 20,
     .ui8_battery_cells_number = 10,
     .ui16_battery_pack_resistance_x1000 = 180,
     .ui16_battery_low_voltage_cut_off_x10 = 290,
@@ -108,7 +110,10 @@ struct_tsdz_cfg tsdz_cfg = {
     .ui8_eMTB_assist_sensitivity = {6,10,14,18},
     .ui8_walk_assist_level = {20,30,40,48},
     .ui8_torque_offset_fix = 0,
-    .ui16_torque_offset_value = 0
+    .ui16_torque_offset_value = 0,
+	.ui8_hall_ref_angles = {0,0,0,0,0,0},
+    .ui8_hall_counter_offset_up = 0,
+    .ui8_hall_counter_offset_down = 0
 };
 
 uint8_t stm8_fw_version = -1;
@@ -139,6 +144,7 @@ volatile uint8_t    ui8_app_rotor_angle_adj = 0;
 
 void update_battery();
 void update_energy(void);
+int validHallRefAngles(volatile uint8_t* values);
 
 void tsdz_data_disconnect_actions() {
 	if (ui8_app_assist_mode == APP_ASSIST_MODE_MOTOR_CALIB) {
@@ -371,10 +377,8 @@ void processControllerMessage(const uint8_t ct_os_message[]) {
     // pedal cadence
     tsdz_status.ui8_pedal_cadence_RPM = ct_os_message[6];
 
-    // brake state
-    // TODO: This field is a a waste of data. 1 byte to carry 1 bit of information.
-    // the 7 MSB bits could be used for FW version info (lcd.c uses only bit 0 info (& 0x01)
-    // in future the bracke info could be mapped to MSB of ct_os_message[16] (ui8_controller_system_state)
+    // Bit 0: brake state
+    // Bit 1-7: FW Version (0 to 127)
     tsdz_status.ui8_braking = ct_os_message[7] & 1;
     stm8_fw_version = ct_os_message[7] >> 1;
 
@@ -406,7 +410,10 @@ void processControllerMessage(const uint8_t ct_os_message[]) {
         tsdz_hall.ui16_hall_5 = (((uint16_t) ct_os_message[19]) << 8) + ((uint16_t) ct_os_message[18]);
         tsdz_hall.ui16_hall_6 = (((uint16_t) ct_os_message[21]) << 8) + ((uint16_t) ct_os_message[20]);
         tsdz_status.ui16_pedal_power_x10 = 0;
+        hall_calib_data_valid = 1;
     } else {
+        hall_calib_data_valid = 0;
+
         // value from optional ADC channel
         tsdz_debug.ui8_adc_throttle = ct_os_message[10];
 
@@ -519,80 +526,106 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
             lcd_os_message[5] = (uint8_t) (tsdz_cfg.ui16_battery_low_voltage_cut_off_x10 & 0xff);
             lcd_os_message[6] = (uint8_t) (tsdz_cfg.ui16_battery_low_voltage_cut_off_x10 >> 8);
 
-            // wheel max speed
-            if (tsdz_status.ui8_street_mode_enabled)
-                lcd_os_message[7] = tsdz_cfg.ui8_street_max_speed;
-            else
-                lcd_os_message[7] = tsdz_cfg.ui8_max_speed;
-
-            break;
-        case 1:
-            // wheel perimeter
-            lcd_os_message[5] = (uint8_t) (tsdz_cfg.ui16_wheel_perimeter & 0xff);
-            lcd_os_message[6] = (uint8_t) (tsdz_cfg.ui16_wheel_perimeter >> 8);
-
-            // optional ADC function, disable throttle if set to be disabled in Street Mode
-            if (tsdz_status.ui8_street_mode_enabled && !tsdz_cfg.ui8_street_mode_throttle_enabled && tsdz_cfg.ui8_optional_ADC_function == THROTTLE_CONTROL) {
-                lcd_os_message[7] = 0;
-            } else {
-                lcd_os_message[7] = tsdz_cfg.ui8_optional_ADC_function;
-            }
-            break;
-        case 2:
-            // set motor type
-            lcd_os_message[5] = tsdz_cfg.ui8_motor_inductance_x1048576;
-            // motor over temperature min value limit
-            lcd_os_message[6] = tsdz_cfg.ui8_motor_temperature_min_value_to_limit;
-            // motor over temperature max value limit
-            lcd_os_message[7] = tsdz_cfg.ui8_motor_temperature_max_value_to_limit;
-            break;
-
-        case 3:
-            lcd_os_message[5] = tsdz_cfg.ui8_torque_offset_fix;
-            lcd_os_message[6] = (uint8_t) (tsdz_cfg.ui16_torque_offset_value & 0xff);
-            lcd_os_message[7] = (uint8_t) (tsdz_cfg.ui16_torque_offset_value >> 8);
-            break;
-        case 4:
-            // lights configuration
-            lcd_os_message[5] = tsdz_cfg.ui8_lights_configuration;
-
-            // assist without pedal rotation threshold
-            lcd_os_message[6] = tsdz_cfg.ui8_assist_without_pedal_rotation_threshold;
-
-            // motor acceleration adjustment
-            lcd_os_message[7] = tsdz_cfg.ui8_motor_acceleration;
-            break;
-        case 5:
-            // pedal torque conversion
-            lcd_os_message[5] = tsdz_cfg.ui8_pedal_torque_per_10_bit_ADC_step_x100;
-
             // max battery current in amps
             if (tsdz_cfg.ui8_esp32_temp_control) {
-                lcd_os_message[6] = map((uint32_t) tsdz_status.i16_motor_temperaturex10,
+                lcd_os_message[7] = map((uint32_t) tsdz_status.i16_motor_temperaturex10,
                         (uint32_t) tsdz_cfg.ui8_motor_temperature_min_value_to_limit * 10,
                         (uint32_t) tsdz_cfg.ui8_motor_temperature_max_value_to_limit * 10,
                         (uint32_t) tsdz_cfg.ui8_battery_max_current,
                         (uint32_t) 0);
             } else
-                lcd_os_message[6] = tsdz_cfg.ui8_battery_max_current;
+                lcd_os_message[7] = tsdz_cfg.ui8_battery_max_current;
 
             // battery power limit
             if (tsdz_status.ui8_street_mode_enabled && tsdz_cfg.ui8_street_mode_power_limit_enabled) {
-                lcd_os_message[7] = tsdz_cfg.ui8_street_mode_power_limit_div25;
+                lcd_os_message[8] = tsdz_cfg.ui8_street_mode_power_limit_div25;
             } else {
-                lcd_os_message[7] = tsdz_cfg.ui8_target_max_battery_power_div25;
+                lcd_os_message[8] = tsdz_cfg.ui8_target_max_battery_power_div25;
             }
+
+            // set motor inductance
+            lcd_os_message[9] = tsdz_cfg.ui8_motor_inductance_x1048576;
+
+            // motor acceleration adjustment
+            lcd_os_message[10] = tsdz_cfg.ui8_motor_acceleration;
             break;
-        case 6:
+
+        case 1:
+        	// Phase angle adjust
             if (lcd_os_message[2] == MOTOR_CALIBRATION_MODE)
                 lcd_os_message[5] = ui8_app_rotor_angle_adj;
             else
                 lcd_os_message[5] = 0;
-            lcd_os_message[6] = 0;
-            lcd_os_message[7] = 0;
+
+            // wheel perimeter
+            lcd_os_message[6] = (uint8_t) (tsdz_cfg.ui16_wheel_perimeter & 0xff);
+            lcd_os_message[7] = (uint8_t) (tsdz_cfg.ui16_wheel_perimeter >> 8);
+
+            // wheel max speed
+            if (tsdz_status.ui8_street_mode_enabled)
+                lcd_os_message[8] = tsdz_cfg.ui8_street_max_speed;
+            else
+                lcd_os_message[8] = tsdz_cfg.ui8_max_speed;
+
+            // assist without pedal rotation threshold
+            lcd_os_message[9] = tsdz_cfg.ui8_assist_without_pedal_rotation_threshold;
+
+            // lights configuration
+            lcd_os_message[10] = tsdz_cfg.ui8_lights_configuration;
+
             break;
-        default:
-            ui8_message_ID = 0;
+        case 2:
+            // optional ADC function, disable throttle if set to be disabled in Street Mode
+            if (tsdz_status.ui8_street_mode_enabled && !tsdz_cfg.ui8_street_mode_throttle_enabled && tsdz_cfg.ui8_optional_ADC_function == THROTTLE_CONTROL) {
+                lcd_os_message[5] = 0;
+            } else {
+                lcd_os_message[5] = tsdz_cfg.ui8_optional_ADC_function;
+            }
+
+            // motor over temperature min value limit
+            lcd_os_message[6] = tsdz_cfg.ui8_motor_temperature_min_value_to_limit;
+            // motor over temperature max value limit
+            lcd_os_message[7] = tsdz_cfg.ui8_motor_temperature_max_value_to_limit;
+
+            // Torque offset Fix
+            lcd_os_message[8] = (uint8_t) (tsdz_cfg.ui16_torque_offset_value & 0xff);
+            lcd_os_message[9] = (uint8_t) ((uint8_t)(tsdz_cfg.ui16_torque_offset_value >> 8) & 0x7f);
+            if (tsdz_cfg.ui8_torque_offset_fix)
+            	lcd_os_message[9] |= 0x80;
+
+            // pedal torque ADC conversion factor
+            lcd_os_message[10] = tsdz_cfg.ui8_pedal_torque_per_10_bit_ADC_step_x100;
+            break;
+
+        case 3:
+        	if (validHallRefAngles(tsdz_cfg.ui8_hall_ref_angles)) {
+				lcd_os_message[5]  = tsdz_cfg.ui8_hall_ref_angles[0];
+				lcd_os_message[6]  = tsdz_cfg.ui8_hall_ref_angles[1];
+				lcd_os_message[7]  = tsdz_cfg.ui8_hall_ref_angles[2];
+				lcd_os_message[8]  = tsdz_cfg.ui8_hall_ref_angles[3];
+				lcd_os_message[9]  = tsdz_cfg.ui8_hall_ref_angles[4];
+				lcd_os_message[10] = tsdz_cfg.ui8_hall_ref_angles[5];
+        	} else {
+				lcd_os_message[5] = 0;
+				lcd_os_message[6] = 0;
+				lcd_os_message[7] = 0;
+				lcd_os_message[8] = 0;
+				lcd_os_message[9] = 0;
+				lcd_os_message[10] = 0;
+        	}
+            break;
+        case 4:
+        	if (tsdz_cfg.ui8_hall_counter_offset_up || tsdz_cfg.ui8_hall_counter_offset_down) {
+				lcd_os_message[5]  = tsdz_cfg.ui8_hall_counter_offset_up;
+				lcd_os_message[6]  = tsdz_cfg.ui8_hall_counter_offset_down;
+        	} else {
+				lcd_os_message[5] = 0;
+				lcd_os_message[6] = 0;
+        	}
+			lcd_os_message[7]  = 0;
+			lcd_os_message[8]  = 0;
+			lcd_os_message[9]  = 0;
+			lcd_os_message[10] = 0;
             break;
     }
 
@@ -607,7 +640,33 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
     lcd_os_message[LCD_OS_MSG_BYTES-2] = (uint8_t) (ui16_crc_tx & 0xff);
     lcd_os_message[LCD_OS_MSG_BYTES-1] = (uint8_t) (ui16_crc_tx >> 8) & 0xff;
 
-    if (++ui8_message_ID > 6) { ui8_message_ID = 0; }
+    if (++ui8_message_ID > 4)
+    	ui8_message_ID = 0;
+}
+
+int validHallRefAngles(volatile uint8_t* values) {
+	int i;
+	for (i=0; i<6; i++) {
+		if (values[i] != 0)
+			break;
+	}
+	// all values 0 -> OK (reset staus)
+	if (i == 6) return 1;
+
+	return ((values[0] >= 213)
+			&& (values[0] <= 233)
+			&& ((uint8_t)(values[1] - values[0]) >= 33)
+			&& ((uint8_t)(values[1] - values[0]) <= 53)
+			&& ((uint8_t)(values[2] - values[1]) >= 33)
+			&& ((uint8_t)(values[2] - values[1]) <= 53)
+			&& ((uint8_t)(values[3] - values[2]) >= 33)
+			&& ((uint8_t)(values[3] - values[2]) <= 53)
+			&& ((uint8_t)(values[4] - values[3]) >= 33)
+			&& ((uint8_t)(values[4] - values[3]) <= 53)
+			&& ((uint8_t)(values[5] - values[4]) >= 33)
+			&& ((uint8_t)(values[5] - values[4]) <= 53)
+			&& ((uint8_t)(values[0] - values[5]) >= 33)
+			&& ((uint8_t)(values[0] - values[5]) <= 53));
 }
 
 
@@ -621,14 +680,19 @@ int tsdz_update_cfg(struct_tsdz_cfg *new_cfg) {
                 (new_cfg->ui8_battery_cells_number > 15) ||
                 (new_cfg->ui8_cruise_mode_enabled > 1) ||
                 (new_cfg->ui8_street_mode_power_limit_enabled > 1) ||
-                (new_cfg->ui8_street_mode_power_limit_enabled > 1)) {
+                (new_cfg->ui8_street_mode_power_limit_enabled > 1) ||
+				!validHallRefAngles(new_cfg->ui8_hall_ref_angles)) {
             ESP_LOGI(TAG,"tsdz_update_cfg VALUES OUT OF RANGE");
             return 1;
         }
         memcpy(&tsdz_cfg, new_cfg, sizeof(struct _tsdz_cfg));
-        tsdz_nvs_update_cfg();
-        ESP_LOGI(TAG,"tsdz_update_cfg OK");
-        return 0;
+        if (tsdz_nvs_update_cfg()) {
+            ESP_LOGE(TAG,"tsdz_update_cfg Failed!");
+            return 1;
+        } else {
+            ESP_LOGI(TAG,"tsdz_update_cfg OK");
+            return 0;
+        }
     }
 }
 

@@ -11,7 +11,7 @@
 char* tsdz_nvs_init(void);
 
 void tsdz_nvs_read_cfg(void);
-void tsdz_nvs_update_cfg(void);
+int tsdz_nvs_update_cfg(void);
 
 void tsdz_nvs_update_whOffset(void);
 void tsdz_update_esp32_cfg(void);

@@ -85,8 +85,7 @@ void mainTask(void * pvParameters) {
     static uint8_t tsdz_bt_task_count = 0, cycling_power_bt_task_count = 0;
     static uint8_t data_task_count             = 1;
     static uint8_t motor_temp_task_count       = 2;
-    static uint8_t motor_calib_task_count      = 3;
-    static uint8_t pcb_temp_task_count         = 4;
+    static uint8_t pcb_temp_task_count         = 3;
 
     ESP_LOGI(TAG, "Main task started");
 
@@ -99,6 +98,12 @@ void mainTask(void * pvParameters) {
         // uart send/receive task
         // run every loop
         tsdz_uart_task();
+
+        // if running motor calibration, send the Hall sensor counters values
+        if (hall_calib_data_valid) {
+        	tsdz_bt_notify_command((uint8_t *)(&tsdz_hall), (uint8_t)sizeof(tsdz_hall));
+        	hall_calib_data_valid = 0;
+        }
 
         // data calculation task (battery Wh consumption)
         // run every 1s
@@ -137,13 +142,6 @@ void mainTask(void * pvParameters) {
         if (++cycling_power_bt_task_count >= (1000 / MAIN_LOOP_SLEEP_MS)) {
             cycling_bt_update();
             cycling_power_bt_task_count = 0;
-        }
-
-        // if running motor calibration, send the Hall sensor counters values every 1/10 sec
-        if (++motor_calib_task_count >= (100 / MAIN_LOOP_SLEEP_MS)) {
-            if (ui8_app_assist_mode == APP_ASSIST_MODE_MOTOR_CALIB)
-                tsdz_bt_notify_command((uint8_t *)(&tsdz_hall), (uint8_t)sizeof(tsdz_hall));
-            motor_calib_task_count = 0;
         }
     }
 }

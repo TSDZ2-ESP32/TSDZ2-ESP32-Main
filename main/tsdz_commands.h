@@ -36,15 +36,15 @@
 //          3=Program progress % (value contains % progress)]
 //          4=Error (value contains error code)
 #define CMD_STM8_OTA_STATUS         0x06
-// For future use: start/stop Hall sensors position calibration
-#define CMD_HAL_CALIBRATION         0x07
-// Set ESP32 Config parameters
+// Notification sent during Motor Calibration (contains the HALL reference counters data)
+#define CMD_HALL_DATA               0x07
+// Command sent by the Android app to set the ESP32 Config parameters
 #define CMD_ESP32_CFG               0x08
-// Set/Unset Street mode from the Android App
+// Command sent by the Android app to override the Street Mode
 #define CMD_STREET_MODE             0x09
-// Set the assist mode from the Android App
+// Command sent by the Android app to override the Assist Mode
 #define CMD_ASSIST_MODE             0x0A
-// Start/Stop Motor Test
+// Command sent by the Android app to Start/Stop Motor Test/Calibration
 #define CMD_MOTOR_CALIBRATION       0x0B
 
 #define TEST_START                  1
