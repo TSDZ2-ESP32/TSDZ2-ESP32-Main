@@ -11,41 +11,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-// OSF optional ADC function
-#define NOT_IN_USE                                0
-#define TEMPERATURE_CONTROL                       1
-#define THROTTLE_CONTROL                          2
 
-// OSF riding modes
-#define OFF_MODE                                0
-#define POWER_ASSIST_MODE                       1
-#define TORQUE_ASSIST_MODE                      2
-#define CADENCE_ASSIST_MODE                     3
-#define eMTB_ASSIST_MODE                        4
-#define WALK_ASSIST_MODE                        5
-#define CRUISE_MODE                             6
-#define MOTOR_CALIBRATION_MODE                  7
-
-// Error Codes of tsdz_status.ui8_controller_system_state
-// The bits 0-6 contains the motors error code
-// Bits 7-8 contains the communication status with LCD and Controller
-#define ERROR_MOTOR_MASK                          0x3f // Mask bits for Motor errors
-#define NO_ERROR                                  0
-#define ERROR_MOTOR_BLOCKED                       1
-#define ERROR_TORQUE_SENSOR                       2
-#define ERROR_BRAKE_APPLIED_DURING_POWER_ON       3  // currently not used
-#define ERROR_THROTTLE_APPLIED_DURING_POWER_ON    4  // currently not used
-#define ERROR_NO_SPEED_SENSOR_DETECTED            5  // currently not used
-#define ERROR_LOW_CONTROLLER_VOLTAGE              6  // controller works with no less than 15 V so give error code if voltage is too low
-#define ERROR_OVERVOLTAGE                         8
-#define ERROR_TEMPERATURE_LIMIT                   9
-#define ERROR_TEMPERATURE_MAX                     10
-#define ERROR_COMMUNICATION_MASK                  0xc0 // Mask bits for Communication errors
-#define ERROR_CONTROLLER_COMMUNICATION            0x80 // Bit 7 set if controller communication is missing
-#define ERROR_LCD_COMMUNICATION                   0x40 // Bit 6 set if lcd communication is missing
-
-#define WALK_ASSIST_THRESHOLD_SPEED_X10           80 // 8.0 Km/h
-#define CRUISE_THRESHOLD_SPEED_X10                90 // 9.0 Km/h
 
 // OEM Display Status byte masks
 #define OEM_ASSIST_LEVEL0            0x10
@@ -54,35 +20,6 @@
 #define OEM_ASSIST_LEVEL3            0x04
 #define OEM_ASSIST_LEVEL4            0x08
 
-// OEM Display error codes
-// N.B.: E01, E05, E07 are not available on XH18 display
-#define OEM_NO_ERROR                            0
-#define OEM_ERROR_TORQUE_SENSOR                 2 // E02
-#define OEM_ERROR_CONTROLLER_FAILURE            3 // E03
-#define OEM_ERROR_MOTOR_BLOCKED                 4 // E04
-#define OEM_ERROR_OVERTEMPERATURE               6 // E06
-#define OEM_ERROR_OVERVOLTAGE                   8 // E08
-
-#define BATTERY_OVERVOLTAGE             1
-#define BATTERY_UNDERVOLTAGE            2
-
-#define MIN_MSG_SEC                     1 // (1 notification/sec)
-#define MAX_MSG_SEC                     5 // (5 notification/sec)
-#define DEFAULT_MSG_SEC                 3 // (2 notification/sec)
-#define MIN_DS18B20_PIN                 3
-#define MAX_DS18B20_PIN                 31
-#define DEFAULT_DS18B20_PIN             4
-
-#define STREET_MODE_LCD_MASTER      0
-#define STREET_MODE_FORCE_OFF       1
-#define STREET_MODE_FORCE_ON        2
-
-#define APP_ASSIST_MODE_LCD_MASTER      0
-#define APP_ASSIST_MODE_FORCE_POWER     1
-#define APP_ASSIST_MODE_FORCE_EMTB      2
-#define APP_ASSIST_MODE_FORCE_TORQUE    3
-#define APP_ASSIST_MODE_FORCE_CADENCE   4
-#define APP_ASSIST_MODE_MOTOR_CALIB     5
 
 #pragma pack(1)
 typedef struct _esp32_cfg {
@@ -117,7 +54,7 @@ typedef struct _tsdz_cfg {
     volatile uint8_t ui8_li_io_cell_full_bars_x100;
     volatile uint8_t ui8_li_io_cell_one_bar_x100;
     volatile uint8_t ui8_li_io_cell_empty_x100;
-    volatile uint8_t ui8_dummy2;
+    volatile uint8_t ui8_phase_angle_adj;
     volatile uint8_t ui8_street_mode_power_limit_enabled;
     volatile uint8_t ui8_street_mode_throttle_enabled;
     volatile uint8_t ui8_street_mode_power_limit_div25;
@@ -137,7 +74,7 @@ typedef struct _tsdz_cfg {
 
 #pragma pack(1)
 typedef struct _tsdz_status {
-    volatile uint8_t ui8_riding_mode;
+    volatile uint8_t ui8_riding_mode; // bit 7 Street Mode enabled flag
     volatile uint8_t ui8_assist_level;
     volatile uint16_t ui16_wheel_speed_x10;
     volatile uint8_t ui8_pedal_cadence_RPM;
@@ -146,9 +83,12 @@ typedef struct _tsdz_status {
     volatile uint16_t ui16_battery_voltage_x1000;
     volatile uint8_t ui8_battery_current_x10;
     volatile uint8_t ui8_system_state;
-    volatile uint8_t ui8_braking;
     volatile uint16_t ui16_battery_wh;
-    volatile uint8_t ui8_street_mode_enabled;
+    volatile uint8_t ui8_rxc_errors;
+    volatile uint8_t ui8_rxl_errors;
+    volatile uint8_t ui8_status3;
+    volatile uint8_t ui8_status4;
+    volatile uint8_t ui8_status5;
 } struct_tsdz_status;
 
 #pragma pack(1)
@@ -160,10 +100,15 @@ typedef struct _tsdz_debug {
     volatile uint16_t ui16_motor_speed_erps;
     volatile uint8_t ui8_foc_angle;
     volatile uint16_t ui16_pedal_torque_x100;
-    volatile uint16_t ui16_dummy;
+    volatile uint8_t ui8_fw_hall_cnt_offset;
     volatile int16_t i16_pcb_temperaturex10;
-    volatile uint8_t ui8_rxc_errors;
-    volatile uint8_t ui8_rxl_errors;
+    volatile uint8_t ui8_debugFlags;
+    volatile uint8_t ui8_debug1;
+    volatile uint8_t ui8_debug2;
+    volatile uint8_t ui8_debug3;
+    volatile uint8_t ui8_debug4;
+    volatile uint8_t ui8_debug5;
+    volatile uint8_t ui8_debug6;
 } struct_tsdz_debug;
 
 #pragma pack(1)
