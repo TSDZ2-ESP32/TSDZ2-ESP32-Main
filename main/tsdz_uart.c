@@ -12,6 +12,7 @@
 #include "esp_log.h"
 #include "driver/uart.h"
 #include "freertos/task.h"
+#include "main.h"
 #include "tsdz_data.h"
 #include "tsdz_uart.h"
 #include "tsdz_utils.h"
@@ -105,7 +106,7 @@ void tsdz_uart_task(void) {
 		} else {
 			ESP_LOGW(TAG,"LCD-CRC-ERROR: %s", bytesToHex(lcd_recived_msg,LCD_OEM_MSG_BYTES));
 	        rxl_errors_cnt++;
-			tsdz_debug.ui8_rxl_errors++;
+	        tsdz_status.ui8_rxl_errors++;
 		}
 
         // if ((rxl_errors_cnt <= 2) && ((xTaskGetTickCount() - last_ct_msg_tick) < pdMS_TO_TICKS(500))) {
@@ -127,7 +128,8 @@ void tsdz_uart_task(void) {
         } else {
             ESP_LOGW(TAG,"CONTROLLER-CRC-ERROR %s", bytesToHex(ct_received_msg,CT_OS_MSG_BYTES));
             rxc_errors_cnt++;
-        	tsdz_debug.ui8_rxc_errors++;
+            tsdz_status.ui8_rxc_errors++;
+
         }
         if ((rxc_errors_cnt <= 2) && ((xTaskGetTickCount() - last_lcd_msg_tick) < pdMS_TO_TICKS(500))) {
         	// Send message to controller only if a LCD message was received in the last 500ms

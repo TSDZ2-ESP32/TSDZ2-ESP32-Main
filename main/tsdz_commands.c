@@ -14,11 +14,12 @@
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 
+#include "main.h"
+#include "tsdz_data.h"
 #include "tsdz_commands.h"
 #include "tsdz_utils.h"
 #include "tsdz_bt.h"
 #include "tsdz_nvs.h"
-#include "tsdz_data.h"
 #include "tsdz_ota_esp32.h"
 
 #define GET                         0
