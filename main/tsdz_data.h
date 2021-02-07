@@ -68,8 +68,8 @@ typedef struct _tsdz_cfg {
     volatile uint8_t ui8_torque_offset_fix;
     volatile uint16_t ui16_torque_offset_value;
     volatile uint8_t  ui8_hall_ref_angles[6];
-    volatile uint8_t  ui8_hall_counter_offset_up;
-    volatile uint8_t  ui8_hall_counter_offset_down;
+    volatile uint8_t  ui8_hall_offset_up;
+    volatile uint8_t  ui8_hall_offset_down;
 } struct_tsdz_cfg;
 
 #pragma pack(1)

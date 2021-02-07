@@ -121,9 +121,9 @@ struct_tsdz_cfg tsdz_cfg = {
     .ui8_walk_assist_level = {20,30,40,48},
     .ui8_torque_offset_fix = 0,
     .ui16_torque_offset_value = 0,
-	.ui8_hall_ref_angles = {223, 10, 53, 95, 138, 181},
-    .ui8_hall_counter_offset_up = 28,
-    .ui8_hall_counter_offset_down = 8
+	.ui8_hall_ref_angles = {217, 4, 47, 89, 132, 175},
+    .ui8_hall_offset_up = 43,
+    .ui8_hall_offset_down = 23
 };
 
 uint8_t stm8_fw_version = -1;
@@ -600,11 +600,8 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
             break;
 
         case 1:
-        	// Phase angle adjust
-            if (lcd_os_message[2] == MOTOR_CALIBRATION_MODE)
-                lcd_os_message[5] = ui8_app_rotor_angle_adj;
-            else
-                lcd_os_message[5] = tsdz_cfg.ui8_phase_angle_adj;
+            // Free for future use
+            lcd_os_message[5] = 0;
 
             // wheel perimeter
             lcd_os_message[6] = (uint8_t) (tsdz_cfg.ui16_wheel_perimeter & 0xff);
@@ -664,14 +661,22 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
         	}
             break;
         case 4:
-        	if (tsdz_cfg.ui8_hall_counter_offset_up || tsdz_cfg.ui8_hall_counter_offset_down) {
-				lcd_os_message[5]  = tsdz_cfg.ui8_hall_counter_offset_up;
-				lcd_os_message[6]  = tsdz_cfg.ui8_hall_counter_offset_down;
+            // Hall counter offset (Up & Down transition)
+            if (tsdz_cfg.ui8_hall_offset_up || tsdz_cfg.ui8_hall_offset_down) {
+				lcd_os_message[5]  = tsdz_cfg.ui8_hall_offset_up;
+				lcd_os_message[6]  = tsdz_cfg.ui8_hall_offset_down;
         	} else {
 				lcd_os_message[5] = 0;
 				lcd_os_message[6] = 0;
         	}
-			lcd_os_message[7]  = 0;
+
+            // Phase angle adjust
+            if (lcd_os_message[2] == MOTOR_CALIBRATION_MODE)
+                lcd_os_message[7] = ui8_app_rotor_angle_adj;
+            else
+                lcd_os_message[7] = tsdz_cfg.ui8_phase_angle_adj;
+
+            // Free for future use
 			lcd_os_message[8]  = 0;
 			lcd_os_message[9]  = 0;
 			lcd_os_message[10] = 0;
