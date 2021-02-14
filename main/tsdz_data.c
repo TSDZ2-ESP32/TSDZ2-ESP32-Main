@@ -114,16 +114,16 @@ struct_tsdz_cfg tsdz_cfg = {
     .ui8_street_mode_power_limit_div25 = 10,
     .ui8_street_mode_speed_limit = 25,
     .ui8_esp32_temp_control = 0,
-    .ui8_cadence_assist_level = {40,60,80,100},
+    .ui8_cadence_assist_level = {50,75,100,125}, // W/2: 100W, 150W, 200W, 250W
     .ui8_power_assist_level = {25,50,100,150}, // %/2: 50%, 100%, 200%, 300%
     .ui8_torque_assist_level = {15,40,65,90},
     .ui8_eMTB_assist_sensitivity = {6,10,14,18},
-    .ui8_walk_assist_level = {20,30,40,48},
+    .ui8_walk_assist_level = {40,55,70,85},
     .ui8_torque_offset_fix = 0,
     .ui16_torque_offset_value = 0,
 	.ui8_hall_ref_angles = {217, 4, 47, 89, 132, 175},
-    .ui8_hall_offset_up = 43,
-    .ui8_hall_offset_down = 23
+    .ui8_hall_offset_up = 45,
+    .ui8_hall_offset_down = 24
 };
 
 uint8_t stm8_fw_version = -1;
