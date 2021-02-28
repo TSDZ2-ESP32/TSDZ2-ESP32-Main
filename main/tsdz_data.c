@@ -89,7 +89,7 @@ struct_tsdz_cfg tsdz_cfg = {
     .ui8_motor_temperature_min_value_to_limit = 65,
     .ui8_motor_temperature_max_value_to_limit = 80,
     .ui8_motor_acceleration = 25,
-    .ui8_dummy = 0,
+    .ui8_hall_offset_adj = 0,
     .ui8_max_speed = 45,
     .ui8_street_max_speed = 25,
     .ui8_pedal_torque_per_10_bit_ADC_step_x100 = 67,
@@ -121,9 +121,8 @@ struct_tsdz_cfg tsdz_cfg = {
     .ui8_walk_assist_level = {40,55,70,85},
     .ui8_torque_offset_fix = 0,
     .ui16_torque_offset_value = 0,
-	.ui8_hall_ref_angles = {217, 4, 47, 89, 132, 175},
-    .ui8_hall_offset_up = 45,
-    .ui8_hall_offset_down = 24
+	.ui8_hall_ref_angles = {217, 4, 47, 89, 132, 175}, // Array order: Hall states 6, 2, 3, 1, 5, 4
+    .ui8_hall_offsets = {44, 23, 44, 23, 44, 23}       // Array order: Hall states 6, 2, 3, 1, 5, 4
 };
 
 uint8_t stm8_fw_version = -1;
@@ -566,8 +565,10 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
             break;
     }
 
-    // set lights state
-    lcd_os_message[4] = ui8_oem_lights;
+    // set lights state (bit 7) and light configuration (bit 0-6)
+    lcd_os_message[4] = tsdz_cfg.ui8_lights_configuration & 0x7f;
+    if (ui8_oem_lights)
+        lcd_os_message[4] |= 0x80;
 
     switch (ui8_message_ID) {
         case 0:
@@ -600,25 +601,22 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
             break;
 
         case 1:
-            // Free for future use
+            // free for future use
             lcd_os_message[5] = 0;
+            lcd_os_message[6] = 0;
 
             // wheel perimeter
-            lcd_os_message[6] = (uint8_t) (tsdz_cfg.ui16_wheel_perimeter & 0xff);
-            lcd_os_message[7] = (uint8_t) (tsdz_cfg.ui16_wheel_perimeter >> 8);
+            lcd_os_message[7] = (uint8_t) (tsdz_cfg.ui16_wheel_perimeter & 0xff);
+            lcd_os_message[8] = (uint8_t) (tsdz_cfg.ui16_wheel_perimeter >> 8);
 
             // wheel max speed (based on Street Mode enable status)
             if (tsdz_status.ui8_riding_mode & 0x80)
-                lcd_os_message[8] = tsdz_cfg.ui8_street_max_speed;
+                lcd_os_message[9] = tsdz_cfg.ui8_street_max_speed;
             else
-                lcd_os_message[8] = tsdz_cfg.ui8_max_speed;
+                lcd_os_message[9] = tsdz_cfg.ui8_max_speed;
 
             // assist without pedal rotation threshold
-            lcd_os_message[9] = tsdz_cfg.ui8_assist_without_pedal_rotation_threshold;
-
-            // lights configuration
-            lcd_os_message[10] = tsdz_cfg.ui8_lights_configuration;
-
+            lcd_os_message[10] = tsdz_cfg.ui8_assist_without_pedal_rotation_threshold;
             break;
         case 2:
             // optional ADC function, disable throttle if is disabled in Street Mode
@@ -645,12 +643,17 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
 
         case 3:
         	if (validHallRefAngles(tsdz_cfg.ui8_hall_ref_angles)) {
-				lcd_os_message[5]  = tsdz_cfg.ui8_hall_ref_angles[0];
-				lcd_os_message[6]  = tsdz_cfg.ui8_hall_ref_angles[1];
-				lcd_os_message[7]  = tsdz_cfg.ui8_hall_ref_angles[2];
-				lcd_os_message[8]  = tsdz_cfg.ui8_hall_ref_angles[3];
-				lcd_os_message[9]  = tsdz_cfg.ui8_hall_ref_angles[4];
-				lcd_os_message[10] = tsdz_cfg.ui8_hall_ref_angles[5];
+        	    uint8_t adj;
+        	    if (lcd_os_message[2] == MOTOR_CALIBRATION_MODE)
+                    adj = ui8_app_rotor_angle_adj;
+                else
+                    adj = tsdz_cfg.ui8_phase_angle_adj;
+				lcd_os_message[5]  = tsdz_cfg.ui8_hall_ref_angles[0] + adj;
+				lcd_os_message[6]  = tsdz_cfg.ui8_hall_ref_angles[1] + adj;
+				lcd_os_message[7]  = tsdz_cfg.ui8_hall_ref_angles[2] + adj;
+				lcd_os_message[8]  = tsdz_cfg.ui8_hall_ref_angles[3] + adj;
+				lcd_os_message[9]  = tsdz_cfg.ui8_hall_ref_angles[4] + adj;
+				lcd_os_message[10] = tsdz_cfg.ui8_hall_ref_angles[5] + adj;
         	} else {
 				lcd_os_message[5] = 0;
 				lcd_os_message[6] = 0;
@@ -661,25 +664,13 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
         	}
             break;
         case 4:
-            // Hall counter offset (Up & Down transition)
-            if (tsdz_cfg.ui8_hall_offset_up || tsdz_cfg.ui8_hall_offset_down) {
-				lcd_os_message[5]  = tsdz_cfg.ui8_hall_offset_up;
-				lcd_os_message[6]  = tsdz_cfg.ui8_hall_offset_down;
-        	} else {
-				lcd_os_message[5] = 0;
-				lcd_os_message[6] = 0;
-        	}
-
-            // Phase angle adjust
-            if (lcd_os_message[2] == MOTOR_CALIBRATION_MODE)
-                lcd_os_message[7] = ui8_app_rotor_angle_adj;
-            else
-                lcd_os_message[7] = tsdz_cfg.ui8_phase_angle_adj;
-
-            // Free for future use
-			lcd_os_message[8]  = 0;
-			lcd_os_message[9]  = 0;
-			lcd_os_message[10] = 0;
+            // Hall counter offset
+            lcd_os_message[5]  = tsdz_cfg.ui8_hall_offsets[0] + tsdz_cfg.ui8_hall_offset_adj;
+            lcd_os_message[6]  = tsdz_cfg.ui8_hall_offsets[1] + tsdz_cfg.ui8_hall_offset_adj;
+            lcd_os_message[7]  = tsdz_cfg.ui8_hall_offsets[2] + tsdz_cfg.ui8_hall_offset_adj;
+            lcd_os_message[8]  = tsdz_cfg.ui8_hall_offsets[3] + tsdz_cfg.ui8_hall_offset_adj;
+            lcd_os_message[9]  = tsdz_cfg.ui8_hall_offsets[4] + tsdz_cfg.ui8_hall_offset_adj;
+            lcd_os_message[10] = tsdz_cfg.ui8_hall_offsets[5] + tsdz_cfg.ui8_hall_offset_adj;
             break;
     }
 
@@ -735,7 +726,9 @@ int tsdz_update_cfg(struct_tsdz_cfg *new_cfg) {
                 (new_cfg->ui8_cruise_mode_enabled > 1) ||
                 (new_cfg->ui8_street_mode_power_limit_enabled > 1) ||
                 (new_cfg->ui8_street_mode_power_limit_enabled > 1) ||
-				!validHallRefAngles(new_cfg->ui8_hall_ref_angles)) {
+				!validHallRefAngles(new_cfg->ui8_hall_ref_angles) ||
+				((new_cfg->ui8_phase_angle_adj > 10) && (new_cfg->ui8_phase_angle_adj < 246)) ||
+                ((new_cfg->ui8_hall_offset_adj > 10) && (new_cfg->ui8_hall_offset_adj < 246))) {
             ESP_LOGI(TAG,"tsdz_update_cfg VALUES OUT OF RANGE");
             return 1;
         }

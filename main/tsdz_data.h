@@ -35,7 +35,7 @@ typedef struct _tsdz_cfg {
     volatile uint8_t ui8_motor_temperature_min_value_to_limit;
     volatile uint8_t ui8_motor_temperature_max_value_to_limit;
     volatile uint8_t ui8_motor_acceleration;
-    volatile uint8_t ui8_dummy;
+    volatile uint8_t ui8_hall_offset_adj;
     volatile uint8_t ui8_max_speed;
     volatile uint8_t ui8_street_max_speed;
     volatile uint8_t ui8_pedal_torque_per_10_bit_ADC_step_x100;
@@ -67,9 +67,8 @@ typedef struct _tsdz_cfg {
     volatile uint8_t ui8_walk_assist_level[4];
     volatile uint8_t ui8_torque_offset_fix;
     volatile uint16_t ui16_torque_offset_value;
-    volatile uint8_t  ui8_hall_ref_angles[6];
-    volatile uint8_t  ui8_hall_offset_up;
-    volatile uint8_t  ui8_hall_offset_down;
+    volatile uint8_t ui8_hall_ref_angles[6];
+    volatile uint8_t ui8_hall_offsets[6];
 } struct_tsdz_cfg;
 
 #pragma pack(1)

@@ -17,7 +17,7 @@
 
 static const char *TAG = "tsdz_nvs";
 
-static const uint8_t NVS_KEY_VAL = 5;
+static const uint8_t NVS_KEY_VAL = 6;
 
 // NVS Configuration Key values
 static const char* NVS_KEY       = "KEY";
@@ -115,13 +115,16 @@ void tsdz_nvs_read_cfg(void) {
 				break;
 			case 3:
 			case 4:
-				ESP_LOGI(TAG, "Upgrading NVS from version 3 or 4");
+			case 5:
+				ESP_LOGI(TAG, "Upgrading NVS from version 3 or 4 or 5");
 				// upgrade cfg from version 3 or 4
 				// get stored tsdz_cfg size
 				err = nvs_get_blob(my_handle, TSDZ_CFG_KEY, NULL, &len);
 				err |= nvs_get_blob(my_handle, TSDZ_CFG_KEY, &tsdz_cfg, &len);
 				if(err != ESP_OK)
 					ESP_LOGE(TAG, "FATAL ERROR: nvs_get_blob - Unable to upgrade cfg: 0x%x", err);
+				tsdz_cfg.ui8_hall_offset_adj = 0;
+				tsdz_cfg.ui8_phase_angle_adj = 0;
 				err = nvs_set_blob(my_handle, TSDZ_CFG_KEY, &tsdz_cfg, sizeof(tsdz_cfg));
 				if(err != ESP_OK)
 					ESP_LOGE(TAG, "FATAL ERROR: nvs_set_blob - Unable to upgrade cfg: 0x%x", err);
