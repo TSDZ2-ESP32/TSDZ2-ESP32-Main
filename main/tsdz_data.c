@@ -387,18 +387,21 @@ void processControllerMessage(const uint8_t ct_os_message[]) {
     // bit 14: flag for MAIN_TIME_DEBUG present
     // bit 15: flag for PWM_TIME_DEBUG present
     tsdz_status.ui16_wheel_speed_x10 = (((uint16_t) (ct_os_message[5] & 0x0f)) << 8) + ((uint16_t) ct_os_message[4]);
+    tsdz_debug.ui8_debugFlags = ct_os_message[5] & 0xf0;
+    /*
+    if (ct_os_message[5] & 0x20)
+        tsdz_debug.ui8_debugFlags |= 0x20;
+    else
+        tsdz_debug.ui8_debugFlags &= (~0x20);
     if (ct_os_message[5] & 0x40)
 		tsdz_debug.ui8_debugFlags |= 0x40;
     else
     	tsdz_debug.ui8_debugFlags &= (~0x40);
-    /*
-    else
-    	tsdz_debug.ui8_debugFlags &= 0x40; */
-
 	if (ct_os_message[5] & 0x80)
 		tsdz_debug.ui8_debugFlags |= 0x80;
     else
     	tsdz_debug.ui8_debugFlags &= (~0x80);
+    */
 
     // pedal cadence
     tsdz_status.ui8_pedal_cadence_RPM = ct_os_message[6];
@@ -470,7 +473,8 @@ void processControllerMessage(const uint8_t ct_os_message[]) {
         // TODO: this field is useless and is not used in the Android app
         tsdz_debug.ui8_throttle = ct_os_message[20];
 
-        if (ct_os_message[5] & 0xf0) {
+        // if PWM_TIME_DEBUG or MAIN_TIME_DEBUG data present
+        if (ct_os_message[5] & 0xC0) {
             // Debug data present
             if (ct_os_message[5] & 0x40)
                 tsdz_debug.ui8_debug2 = ct_os_message[21];
@@ -485,7 +489,8 @@ void processControllerMessage(const uint8_t ct_os_message[]) {
                     + ((uint32_t) ct_os_message[21]);
         }
 
-        if (ct_os_message[5] & 0x80) {
+        // if MAIN_TIME_DEBUG or HALL_DEBUG data present
+        if (ct_os_message[5] & 0xA0) {
             // Debug data present
             tsdz_debug.ui8_debug5 = ct_os_message[24];
             tsdz_debug.ui8_debug6 = ct_os_message[25];
