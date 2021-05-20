@@ -31,7 +31,7 @@ typedef struct _esp32_cfg {
 
 #pragma pack(1)
 typedef struct _tsdz_cfg {
-    volatile uint8_t ui8_motor_inductance_x1048576;
+    volatile uint8_t ui8_foc_angle_multiplicator;
     volatile uint8_t ui8_motor_temperature_min_value_to_limit;
     volatile uint8_t ui8_motor_temperature_max_value_to_limit;
     volatile uint8_t ui8_motor_acceleration;
@@ -65,7 +65,7 @@ typedef struct _tsdz_cfg {
     volatile uint8_t ui8_torque_assist_level[4];
     volatile uint8_t ui8_eMTB_assist_sensitivity[4];
     volatile uint8_t ui8_walk_assist_level[4];
-    volatile uint8_t ui8_torque_offset_fix;
+    volatile uint8_t ui8_flags; // bit 0: Torque offset fix en/dis, bit 1: field weakening en/dis
     volatile uint16_t ui16_torque_offset_value;
     volatile uint8_t ui8_hall_ref_angles[6];
     volatile uint8_t ui8_hall_offsets[6];

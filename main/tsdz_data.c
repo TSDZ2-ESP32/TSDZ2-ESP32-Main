@@ -85,7 +85,7 @@ struct_tsdz_hall tsdz_hall = {
 // These are the initialization values stored into NVS at first startup.
 // Then the values are overwritten at the startup with the values stored into NVS
 struct_tsdz_cfg tsdz_cfg = {
-    .ui8_motor_inductance_x1048576 = 80,
+    .ui8_foc_angle_multiplicator = 24,
     .ui8_motor_temperature_min_value_to_limit = 65,
     .ui8_motor_temperature_max_value_to_limit = 80,
     .ui8_motor_acceleration = 25,
@@ -119,7 +119,7 @@ struct_tsdz_cfg tsdz_cfg = {
     .ui8_torque_assist_level = {15,40,65,90},
     .ui8_eMTB_assist_sensitivity = {6,10,14,18},
     .ui8_walk_assist_level = {40,55,70,85},
-    .ui8_torque_offset_fix = 0,
+    .ui8_flags = 2,
     .ui16_torque_offset_value = 0,
 	.ui8_hall_ref_angles = {217, 4, 47, 89, 132, 175}, // Array order: Hall states 6, 2, 3, 1, 5, 4
     .ui8_hall_offsets = {44, 23, 44, 23, 44, 23}       // Array order: Hall states 6, 2, 3, 1, 5, 4
@@ -599,16 +599,26 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
             }
 
             // set motor inductance
-            lcd_os_message[9] = tsdz_cfg.ui8_motor_inductance_x1048576;
+            lcd_os_message[9] = tsdz_cfg.ui8_foc_angle_multiplicator;
 
             // motor acceleration adjustment
             lcd_os_message[10] = tsdz_cfg.ui8_motor_acceleration;
             break;
 
         case 1:
+            // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            #ifdef DEADTIME_TEST
+            if (lcd_os_message[2] == MOTOR_CALIBRATION_MODE)
+                lcd_os_message[5] = ui8_app_rotor_angle_adj;
+            else
+            #endif
             // free for future use
-            lcd_os_message[5] = 0;
-            lcd_os_message[6] = 0;
+                lcd_os_message[5] = 0;
+            // field weakening enable flag
+            if (tsdz_cfg.ui8_flags & 0x02)
+                lcd_os_message[6] = 1;
+            else
+                lcd_os_message[6] = 0;
 
             // wheel perimeter
             lcd_os_message[7] = (uint8_t) (tsdz_cfg.ui16_wheel_perimeter & 0xff);
@@ -639,7 +649,8 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
             // Torque offset Fix
             lcd_os_message[8] = (uint8_t) (tsdz_cfg.ui16_torque_offset_value & 0xff);
             lcd_os_message[9] = (uint8_t) ((uint8_t)(tsdz_cfg.ui16_torque_offset_value >> 8) & 0x7f);
-            if (tsdz_cfg.ui8_torque_offset_fix)
+            // Set bit 15 if torque offset fix is enabled
+            if (tsdz_cfg.ui8_flags & 0x01)
             	lcd_os_message[9] |= 0x80;
 
             // pedal torque ADC conversion factor
@@ -649,9 +660,12 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
         case 3:
         	if (validHallRefAngles(tsdz_cfg.ui8_hall_ref_angles)) {
         	    uint8_t adj;
+                // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                #ifndef DEADTIME_TEST
         	    if (lcd_os_message[2] == MOTOR_CALIBRATION_MODE)
                     adj = ui8_app_rotor_angle_adj;
                 else
+                #endif
                     adj = tsdz_cfg.ui8_phase_angle_adj;
 				lcd_os_message[5]  = tsdz_cfg.ui8_hall_ref_angles[0] + adj;
 				lcd_os_message[6]  = tsdz_cfg.ui8_hall_ref_angles[1] + adj;
@@ -725,7 +739,7 @@ int tsdz_update_cfg(struct_tsdz_cfg *new_cfg) {
         ESP_LOGI(TAG,"tsdz_update_cfg NO CHANGE");
         return 0;
     } else {
-        if ((new_cfg->ui8_motor_inductance_x1048576 > 150) ||
+        if ((new_cfg->ui8_foc_angle_multiplicator > 50) ||
                 (new_cfg->ui8_optional_ADC_function > 2) ||
                 (new_cfg->ui8_battery_cells_number > 15) ||
                 (new_cfg->ui8_cruise_mode_enabled > 1) ||
