@@ -129,7 +129,6 @@ void tsdz_uart_task(void) {
             ESP_LOGW(TAG,"CONTROLLER-CRC-ERROR %s", bytesToHex(ct_received_msg,CT_OS_MSG_BYTES));
             rxc_errors_cnt++;
             tsdz_status.ui8_rxc_errors++;
-
         }
         if ((rxc_errors_cnt <= 2) && ((xTaskGetTickCount() - last_lcd_msg_tick) < pdMS_TO_TICKS(500))) {
         	// Send message to controller only if a LCD message was received in the last 500ms
@@ -140,11 +139,11 @@ void tsdz_uart_task(void) {
     }
 
     // Update Communication status bits of tsdz_status.ui8_system_state
-    if ((xTaskGetTickCount() - last_ct_msg_tick) < pdMS_TO_TICKS(500))
+    if ((xTaskGetTickCount() - last_ct_msg_tick) < pdMS_TO_TICKS(550))
         tsdz_status.ui8_system_state &= ~ERROR_CONTROLLER_COMMUNICATION;
     else
         tsdz_status.ui8_system_state |= ERROR_CONTROLLER_COMMUNICATION;
-    if ((xTaskGetTickCount() - last_lcd_msg_tick) < pdMS_TO_TICKS(500))
+    if ((xTaskGetTickCount() - last_lcd_msg_tick) < pdMS_TO_TICKS(550))
         tsdz_status.ui8_system_state &= ~ERROR_LCD_COMMUNICATION;
     else
         tsdz_status.ui8_system_state |= ERROR_LCD_COMMUNICATION;
