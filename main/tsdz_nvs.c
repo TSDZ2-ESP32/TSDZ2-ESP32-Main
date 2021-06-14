@@ -36,46 +36,25 @@ nvs_handle my_handle;
 
 // initialize the NVS and check OTA_BOOT flag.
 // return true if the OTA_BOOT flag is set
-char* tsdz_nvs_init(void) {
+void tsdz_nvs_init(void) {
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)  {
         const esp_partition_t* nvs_partition =
                 esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, NULL);
         if(!nvs_partition) {
             ESP_LOGE(TAG, "FATAL ERROR: No NVS partition found");
-            return NULL;
+            return;
         }
         err = (esp_partition_erase_range(nvs_partition, 0, nvs_partition->size));
         if(err != ESP_OK) {
             ESP_LOGE(TAG, "FATAL ERROR: Unable to erase the partition");
-            return NULL;
+            return;
         }
     }
 
     err = nvs_open("storage", NVS_READWRITE, &my_handle);
-    if (err == ESP_OK)
-    	return get_ota();
-
-    ESP_LOGE(TAG, "FATAL ERROR: Unable to open NVS");
-    return NULL;
-}
-
-// return true if the OTA_BOOT flag is set and reset the flag
-static char* get_ota(void) {
-	esp_err_t err;
-	size_t required_size;
-	err = nvs_get_str(my_handle, OTA_BOOT, NULL, &required_size);
-	if (err != ESP_OK)
-		return NULL;
-	char* ota_data = malloc(required_size);
-	err = nvs_get_str(my_handle, OTA_BOOT, ota_data, &required_size);
-	if (err != ESP_OK) {
-		free(ota_data);
-		return NULL;
-	}
-	nvs_erase_key(my_handle, OTA_BOOT);
-	nvs_commit(my_handle);
-	return ota_data;
+    if (err != ESP_OK)
+        ESP_LOGE(TAG, "FATAL ERROR: Unable to open NVS");
 }
 
 void tsdz_nvs_read_cfg(void) {
@@ -204,15 +183,6 @@ void tsdz_update_esp32_cfg() {
     err = nvs_commit(my_handle);
     if (err != ESP_OK)
         ESP_LOGE(TAG, "FATAL ERROR: Unable to commit nvs");
-}
-
-// Set OTA_BOOT data
-esp_err_t tsdz_nvs_set_ota(char* data) {
-    esp_err_t err = nvs_set_str(my_handle, OTA_BOOT, data);
-    err |= nvs_commit(my_handle);
-    if (err != ESP_OK)
-        ESP_LOGE(TAG, "ERROR: Unable set OTA Boot");
-    return err;
 }
 
 

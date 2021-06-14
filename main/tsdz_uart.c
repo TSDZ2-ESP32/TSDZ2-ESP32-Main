@@ -16,13 +16,7 @@
 #include "tsdz_data.h"
 #include "tsdz_uart.h"
 #include "tsdz_utils.h"
-
-
-#define DEBUG_MSG_ID                0x7C
-
-#define SPECIAL                     0xED
-#define STX                         0xEE
-#define ETX                         0xEF
+#include "tsdz_ota_stm8.h"
 
 
 static const char *TAG = "tsdz_uart";
@@ -96,6 +90,12 @@ void tsdz_uart_init(void) {
 // the OEM LCD sends about 13 msg/sec but the messages to the controller
 // are sent at a frequency of 10 msg/sec like the official LCD3
 void tsdz_uart_task(void) {
+    // Verify if STM8 Controller OTA should be started
+    // OTA flag should be sent two consecutive times to the controller
+    if (stm8_ota_status > 2) {
+        uart_wait_tx_done(CT_UART,  pdMS_TO_TICKS(1000));
+        stm8_ota_task();
+    }
     // Read messages coming from LCD
     if (lcdMessageReceived()) {
     	if (checkCRC(lcd_recived_msg, LCD_OEM_MSG_BYTES)) {

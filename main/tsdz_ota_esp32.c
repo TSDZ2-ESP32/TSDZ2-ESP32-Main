@@ -38,9 +38,6 @@ static esp_ota_handle_t update_handle = 0;
 static const esp_partition_t *partition = NULL;
 extern TaskHandle_t mainTaskHandle;
 
-static char* ssid;
-static char* pwd;
-static int   port;
 
 static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
     switch(evt->event_id) {
@@ -74,18 +71,18 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
 }
 
 // OTA_0 and OTA_1 are the partition for the main app, OTA_2 is the partition of the STM8 Loader App
-static void esp_ota_download()
+static void esp_ota_task()
 {
     esp_err_t err;
     uint8_t ret[2] = {CMD_ESP_OTA_STATUS, 0};
     char *buffer = NULL;
 
-    ESP_LOGI(TAG, "esp_ota_download - ssid:%s, pwd:%s, port:%d", ssid, pwd, port);
-    if (!wifi_init_sta(ssid, pwd)) {
+    if (!wifi_start_sta()) {
     	ESP_LOGE(TAG, "Connection to WiFi AP failed");
 		ret[1] = 10;
 		goto exit;
 	}
+    ESP_LOGI(TAG, "WiFi connected");
 
     buffer = malloc(READ_BUFFER_SIZE);
     if (buffer == NULL) {
@@ -117,7 +114,7 @@ static void esp_ota_download()
     ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x", partition->subtype, partition->address);
 
     char url[32];
-    snprintf(url, 32, "http://%s:%d", gwAddress, port);
+    snprintf(url, 32, "http://%s:%d", wifi_get_address(), wifi_get_port());
 
     esp_http_client_config_t config = {
         .url = url,
@@ -207,23 +204,32 @@ static void esp_ota_download()
 }
 
 uint8_t ota_esp32_start(uint8_t* data, uint16_t len) {
-    port = 0;
-    char *copy, *r;
-    copy = r = (char*)malloc(len+1);
-    memcpy(r, data, len);
-    r[len] = '\0';
-    ssid = strsep(&r, "|");
-    pwd  = strsep(&r, "|");
-    port = atoi(strsep(&r, "|"));
+    char *unmodified_copy, *copy;
+    char *ssid;
+    char *pwd;
+    int port = 0;
+
+    copy = (char*)malloc(len+1);
+    memcpy(copy, data, len);
+    copy[len] = '\0';
+    unmodified_copy = copy;
+
+    ssid = strsep(&copy, "|");
+    pwd = strsep(&copy, "|");
+    port = atoi(strsep(&copy, "|"));
     ESP_LOGI(TAG, "ota_esp32_start: ssid:%s pwd:%s port:%d", ssid, pwd, port);
 
     if (ssid == NULL || pwd == NULL || port == 0) {
         ESP_LOGE(TAG, "ota_start - Command parameters Error");
-        free(copy);
+        free(unmodified_copy);
         return 1;
     }
+
+    wifi_set_data(ssid, pwd, port);
+    free(unmodified_copy);
+
     vTaskSuspend(mainTaskHandle);
-    xTaskCreate(esp_ota_download, "ota_task", 3072, NULL, 5, NULL);
+    xTaskCreate(esp_ota_task, "esp_ota_task", 3072, NULL, 5, NULL);
     return 0;
 }
 

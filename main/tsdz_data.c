@@ -16,6 +16,7 @@
 #include "tsdz_nvs.h"
 #include "tsdz_uart.h"
 #include "tsdz_utils.h"
+#include "tsdz_ota_stm8.h"
 
 static const char *TAG = "tsdz_data";
 
@@ -614,8 +615,14 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
             #endif
             // free for future use
                 lcd_os_message[5] = 0;
-            // field weakening enable flag
-            if (tsdz_cfg.ui8_flags & 0x02)
+
+            // lcd_os_message[5]:
+            // Bit 7: STM8 OTA Reboot
+            // Bit 0: Field Weakening enable flag
+            if (stm8_ota_status > 0) {
+                lcd_os_message[6] = 0x80;
+                stm8_ota_status++;
+            } else if (tsdz_cfg.ui8_flags & 0x02)
                 lcd_os_message[6] = 1;
             else
                 lcd_os_message[6] = 0;

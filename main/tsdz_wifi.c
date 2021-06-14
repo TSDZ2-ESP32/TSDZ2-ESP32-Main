@@ -32,7 +32,11 @@ static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_FAIL_BIT      BIT1
 
 static int s_retry_num = 0;
-char gwAddress[16];
+
+static char ssid[33];
+static char pwd[64];
+static int port;
+static char gwAddress[16];
 
 static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
@@ -57,7 +61,21 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
     }
 }
 
-bool wifi_init_sta(char* ssid, char* pwd)
+void wifi_set_data(char* p_ssid, char* p_pwd, int p_port) {
+    strcpy(ssid, p_ssid);
+    strcpy(pwd, p_pwd);
+    port = p_port;
+}
+
+char* wifi_get_address() {
+    return gwAddress;
+}
+
+int wifi_get_port() {
+    return port;
+}
+
+bool wifi_start_sta()
 {
     s_wifi_event_group = xEventGroupCreate();
 

@@ -42,12 +42,8 @@ void app_main(void)
 {
 
     // Init NVS
-	// if OTA_BOOT data is found, start ASAP the STM8 bootloader activation and the OTA process
-    char* ota_data = tsdz_nvs_init();
-    if (ota_data != NULL)
-    	start_ota_stm8(ota_data);
-
-    ESP_LOGI(TAG, "Start normal");
+    ESP_LOGI(TAG, "NVS init ...");
+    tsdz_nvs_init();
 
     // wait 1 sec to avoid STM8 bootloader activation
     vTaskDelay(pdMS_TO_TICKS(1000));
@@ -63,11 +59,13 @@ void app_main(void)
     ESP_LOGI(TAG, "UART init ...");
     tsdz_uart_init();
 
+    ESP_LOGI(TAG, "BT init ...");
     tsdz_bt_init();
-    ESP_LOGI(TAG, "bt init done");
 
+    ESP_LOGI(TAG, "TMP112 init ...");
     tsdz_tmp112_init();
-    ESP_LOGI(TAG, "TMP112 init done");
+
+    ESP_LOGI(TAG, "Init done");
 
     xTaskCreate( mainTask, "main_task", 2048, NULL, 5, &mainTaskHandle );
     if (mainTaskHandle == NULL) {

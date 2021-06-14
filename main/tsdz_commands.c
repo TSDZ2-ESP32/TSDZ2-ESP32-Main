@@ -21,6 +21,7 @@
 #include "tsdz_bt.h"
 #include "tsdz_nvs.h"
 #include "tsdz_ota_esp32.h"
+#include "tsdz_ota_stm8.h"
 
 #define GET                         0
 #define SET                         1
@@ -100,19 +101,14 @@ static int command_esp32_cfg(uint8_t* value, uint16_t len) {
 static int command_ota(uint8_t* data, uint16_t len, uint8_t cmdType) {
     uint8_t ret_val[2] = {cmdType,0};
 
-    if (cmdType == CMD_ESP_OTA)
+    if (tsdz_status.ui16_wheel_speed_x10 > 0 ||
+            tsdz_status.ui8_pedal_cadence_RPM > 0 ||
+            tsdz_debug.ui16_motor_speed_erps > 0) {
+        ret_val[1] = 2;
+    } else if (cmdType == CMD_ESP_OTA)
         ret_val[1] = ota_esp32_start(data, len);
     else if (cmdType == CMD_STM8S_OTA) {
-    	// create the Ota Data null terminated string
-    	char* copy = (char*)malloc(len+1);
-    	memcpy(copy, data, len);
-    	copy[len] = '\0';
-    	// Store the data into NVS. At the next boot, the OTA process will be started
-    	if (tsdz_nvs_set_ota(copy) == ESP_OK)
-    		ret_val[1] = 0;
-    	else
-    		ret_val[1] = 1;
-    	free(copy);
+        ret_val[1] = ota_stm8_start(data, len);
     } else
         ret_val[1] = 0xff;
 

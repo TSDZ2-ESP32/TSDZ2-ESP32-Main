@@ -28,6 +28,7 @@
 
 static const char* TAG = "tsdz_ota_stm8";
 
+
 #define MAX_FW_SIZE 32768
 
 // BSL command codes
@@ -43,7 +44,7 @@ static const char* TAG = "tsdz_ota_stm8";
 #define NACK    0x1F      //< No acknowledge
 #define BUSY    0xAA      //< Busy flag status
 
-
+volatile int stm8_ota_status = 0;
 
 /**
   \fn uint32_t send_port(uart_port_t uartNum, uint8_t uartMode, uint32_t lenTx, char *Tx)
@@ -721,74 +722,33 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
     return ESP_OK;
 }
 
-static void init_bt() {
-	static bool init_done = false;
-
-	if (init_done)
-		return;
-
-	// Start bluetooth to give update feedback
-    tsdz_bt_init();
-    ESP_LOGI(TAG, "bt init done");
-
-    // wait until Phone connects and Command notificationa are enabled.
-    while(!btCommandReady) {
-    	vTaskDelay(pdMS_TO_TICKS(100));
-    }
-    init_done = true;
-}
-
-void start_ota_stm8(char* wifiCfg) {
+void stm8_ota_task() {
     uint8_t ret[3] = {CMD_STM8_OTA_STATUS,0,0};
 
-    // UART Initialization
-    tsdz_uart_init();
+    // Wait for stm8 bootloader activation
+    // Note: STM8 Bootloader has only 1 sec detection window after boot
+    vTaskDelay(pdMS_TO_TICKS(300));
 
-    // Send SYNC as soon as possible to STM8 Bootloader
-	// STM8 Bootloader has only 1 sec detection window after boot
+    // Send SYNC to STM8 Bootloader
 	if (!bsl_sync(CT_UART)) {
 		ESP_LOGE(TAG, "STM8 Bootloader Sync failed");
 		ret[2] = 0;
 		goto error;
 	}
-	vTaskDelay(pdMS_TO_TICKS(1000));
-
-	// Set Log level according to NVS configuration
-	tsdz_nvs_read_cfg();
-	setLogLevel();
-
 	ESP_LOGI(TAG, "STM8 Bootloader Sync Done!");
-    esp_err_t err;
-    
-    char *ssid;
-    char *pwd;
-    int port;
-    char url[32];
-    port = 0;
 
-    // initialize WiFi parameters and url to connect
-	ssid = strsep(&wifiCfg, "|");
-	pwd  = strsep(&wifiCfg, "|");
-	port = atoi(strsep(&wifiCfg, "|"));
-    ESP_LOGI(TAG, "ota_esp32_start: ssid:%s pwd:%s port:%d", ssid, pwd, port);
-
-    vTaskDelay(pdMS_TO_TICKS(1000));
-	if (ssid == NULL || pwd == NULL || port == 0) {
-		ESP_LOGE(TAG, "start_ota_stm8 - Command parameters Error");
-		ret[2] = 1;
-		goto error;
-	}
-	
-	// connect to the Phone Access Point
-    if (!wifi_init_sta(ssid, pwd)) {
+	// connect to the Access Point
+    if (!wifi_start_sta()) {
     	ESP_LOGE(TAG, "Connection to WiFi AP failed");
 		ret[2] = 13;
 		goto error;
 	}
-    ESP_LOGI(TAG, "WiFi started");
+    ESP_LOGI(TAG, "WiFi connected");
 
-    snprintf(url, 32, "http://%s:%d", gwAddress, port);
-    ESP_LOGI(TAG, "ota_esp32_start: url:%s", url);
+    // set URL
+    char url[32];
+    snprintf(url, 32, "http://%s:%d", wifi_get_address(), wifi_get_port());
+    ESP_LOGI(TAG, "stm8_ota_task: url:%s", url);
 
     // Allocate memory for Firmware Image
     char* firmwareImage = malloc(MAX_FW_SIZE);
@@ -803,6 +763,7 @@ void start_ota_stm8(char* wifiCfg) {
 		.url = url,
 		.event_handler = _http_event_handler,
 	};
+    esp_err_t err;
 	esp_http_client_handle_t client = esp_http_client_init(&config);
 	if ((err = esp_http_client_open(client, 0)) != ESP_OK) {
 		ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(err));
@@ -844,9 +805,6 @@ void start_ota_stm8(char* wifiCfg) {
     
 	// Firmware download completed. Deinit Wifi
 	tsdz_wifi_deinit();
-	
-	// Start bluetooth to give update feedback
-	init_bt();
     
     ret[1] = 1;
 	ESP_LOGI(TAG, "Sending end OTA Status, Phase 1 OK");
@@ -923,13 +881,40 @@ void start_ota_stm8(char* wifiCfg) {
 	esp_restart();
 	
   error:
-    // init BT if not already done
-	init_bt();
 	ret[1] = 4;
 	tsdz_bt_notify_command(ret, 3);
 	ESP_LOGI(TAG, "Reboot in 1 sec.");
 	vTaskDelay(pdMS_TO_TICKS(1000));
 	esp_restart();
+}
+
+uint8_t ota_stm8_start(uint8_t* data, uint16_t len) {
+    char *unmodified_copy, *copy;
+    char *ssid;
+    char *pwd;
+    int port = 0;
+
+    copy = (char*)malloc(len+1);
+    memcpy(copy, data, len);
+    copy[len] = '\0';
+    unmodified_copy = copy;
+
+    ssid = strsep(&copy, "|");
+    pwd = strsep(&copy, "|");
+    port = atoi(strsep(&copy, "|"));
+    ESP_LOGI(TAG, "ota_esp32_start: ssid:%s pwd:%s port:%d", ssid, pwd, port);
+
+    if (ssid == NULL || pwd == NULL || port == 0) {
+        ESP_LOGE(TAG, "ota_start - Command parameters Error");
+        free(unmodified_copy);
+        return 1;
+    }
+
+    wifi_set_data(ssid, pwd, port);
+    free(unmodified_copy);
+
+    stm8_ota_status = 1;
+    return 0;
 }
 
 
