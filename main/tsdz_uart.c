@@ -93,8 +93,15 @@ void tsdz_uart_task(void) {
     // Verify if STM8 Controller OTA should be started
     // OTA flag should be sent two consecutive times to the controller
     if (stm8_ota_status > 2) {
-        uart_wait_tx_done(CT_UART,  pdMS_TO_TICKS(1000));
-        stm8_ota_task();
+        // wait end of transmission of last controller message
+        esp_err_t err = uart_wait_tx_done(CT_UART,  pdMS_TO_TICKS(100));
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG,"STM8 OTA Start!");
+            ota_stm8_start();
+        } else {
+            ESP_LOGE(TAG, "STM8 OTA Aborted. uart_wait_tx_done error=%d", err);
+            stm8_ota_status = 0;
+        }
     }
     // Read messages coming from LCD
     if (lcdMessageReceived()) {

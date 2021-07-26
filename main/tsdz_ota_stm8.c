@@ -754,6 +754,7 @@ void stm8_ota_task() {
     char* firmwareImage = malloc(MAX_FW_SIZE);
     if (firmwareImage == NULL) {
 		ESP_LOGE(TAG, "Cannot allocate memory for firmware image");
+		tsdz_wifi_deinit();
 		ret[2] = 2;
 		goto error;	
     }
@@ -767,6 +768,7 @@ void stm8_ota_task() {
 	esp_http_client_handle_t client = esp_http_client_init(&config);
 	if ((err = esp_http_client_open(client, 0)) != ESP_OK) {
 		ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(err));
+		tsdz_wifi_deinit();
 		ret[2] = 3;
 		goto error;
 	}
@@ -774,11 +776,13 @@ void stm8_ota_task() {
 	int binary_len = esp_http_client_fetch_headers(client);
 	if (binary_len < 0) {
 		ESP_LOGE(TAG, "esp_http_client_fetch_headers Error");
+		tsdz_wifi_deinit();
 		ret[2] = 4;
 		goto error;
 	}
 	if (binary_len > 1024*32) {
 		ESP_LOGE(TAG, "STM8 FW size wrong: %d bytes", binary_len);
+		tsdz_wifi_deinit();
 		ret[2] = 5;
 		goto error;
 	}
@@ -790,12 +794,14 @@ void stm8_ota_task() {
 	while (((binary_len > 0) && (total_read < binary_len)) ||
 			((binary_len == 0) && !esp_http_client_is_complete_data_received(client))) {
 		if (total_read >= 1024*32) {
+		    tsdz_wifi_deinit();
 			ESP_LOGE(TAG, "STM8 FW size too big");
 			ret[2] = 6;
 			goto error;
 		}
 		read_len = esp_http_client_read(client, &firmwareImage[total_read], MAX_FW_SIZE-total_read);
 		if (read_len < 0) {
+		    tsdz_wifi_deinit();
 			ESP_LOGE(TAG, "Error read data");
 			ret[2] = 7;
 			goto error;
@@ -888,7 +894,14 @@ void stm8_ota_task() {
 	esp_restart();
 }
 
-uint8_t ota_stm8_start(uint8_t* data, uint16_t len) {
+void ota_stm8_start() {
+    // The call to wifi_start_sta() from main task caused Stack Overflow
+    // -> create new task to execute OTA
+    xTaskCreate(stm8_ota_task, "stm8_ota_task", 3072, NULL, 5, NULL);
+	vTaskSuspend(NULL);
+}
+
+uint8_t ota_stm8_init(uint8_t* data, uint16_t len) {
     char *unmodified_copy, *copy;
     char *ssid;
     char *pwd;
@@ -902,7 +915,7 @@ uint8_t ota_stm8_start(uint8_t* data, uint16_t len) {
     ssid = strsep(&copy, "|");
     pwd = strsep(&copy, "|");
     port = atoi(strsep(&copy, "|"));
-    ESP_LOGI(TAG, "ota_esp32_start: ssid:%s pwd:%s port:%d", ssid, pwd, port);
+    ESP_LOGI(TAG, "ota_stm8_start: ssid:%s pwd:%s port:%d", ssid, pwd, port);
 
     if (ssid == NULL || pwd == NULL || port == 0) {
         ESP_LOGE(TAG, "ota_start - Command parameters Error");

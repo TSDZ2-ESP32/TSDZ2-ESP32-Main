@@ -108,7 +108,7 @@ static int command_ota(uint8_t* data, uint16_t len, uint8_t cmdType) {
     } else if (cmdType == CMD_ESP_OTA)
         ret_val[1] = ota_esp32_start(data, len);
     else if (cmdType == CMD_STM8S_OTA) {
-        ret_val[1] = ota_stm8_start(data, len);
+        ret_val[1] = ota_stm8_init(data, len);
     } else
         ret_val[1] = 0xff;
 

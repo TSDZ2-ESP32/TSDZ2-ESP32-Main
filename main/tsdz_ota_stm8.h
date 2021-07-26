@@ -12,7 +12,7 @@
 
 extern volatile int stm8_ota_status;
 
-uint8_t ota_stm8_start(uint8_t* data, uint16_t len);
-void stm8_ota_task();
+uint8_t ota_stm8_init(uint8_t* data, uint16_t len);
+void ota_stm8_start();
 
 #endif /* MAIN_TSDZ_OTA_STM8_H_ */

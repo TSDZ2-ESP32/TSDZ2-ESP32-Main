@@ -86,7 +86,7 @@ struct_tsdz_hall tsdz_hall = {
 // These are the initialization values stored into NVS at first startup.
 // Then the values are overwritten at the startup with the values stored into NVS
 struct_tsdz_cfg tsdz_cfg = {
-    .ui8_foc_angle_multiplicator = 24,
+    .ui8_foc_angle_multiplicator = 27,
     .ui8_motor_temperature_min_value_to_limit = 65,
     .ui8_motor_temperature_max_value_to_limit = 80,
     .ui8_motor_acceleration = 25,
@@ -301,6 +301,7 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
 
     // system status
     if(((tsdz_status.ui8_system_state & ERROR_MOTOR_MASK) == ERROR_MOTOR_BLOCKED)
+            || ((tsdz_status.ui8_system_state & ERROR_MOTOR_MASK) == ERROR_BATTERY_OVERCURRENT)
             || (bike_locked != 0))
         ui8_error_code = OEM_ERROR_MOTOR_BLOCKED;
     else if ((tsdz_status.ui8_system_state & ERROR_MOTOR_MASK) == ERROR_TORQUE_SENSOR)
@@ -619,13 +620,13 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
             // lcd_os_message[5]:
             // Bit 7: STM8 OTA Reboot
             // Bit 0: Field Weakening enable flag
+            lcd_os_message[6] = 0;
             if (stm8_ota_status > 0) {
-                lcd_os_message[6] = 0x80;
+                lcd_os_message[6] |= 0x80;
                 stm8_ota_status++;
-            } else if (tsdz_cfg.ui8_flags & 0x02)
-                lcd_os_message[6] = 1;
-            else
-                lcd_os_message[6] = 0;
+            }
+            if (tsdz_cfg.ui8_flags & 0x02)
+                lcd_os_message[6] |= 1;
 
             // wheel perimeter
             lcd_os_message[7] = (uint8_t) (tsdz_cfg.ui16_wheel_perimeter & 0xff);
@@ -750,7 +751,6 @@ int tsdz_update_cfg(struct_tsdz_cfg *new_cfg) {
                 (new_cfg->ui8_optional_ADC_function > 2) ||
                 (new_cfg->ui8_battery_cells_number > 15) ||
                 (new_cfg->ui8_cruise_mode_enabled > 1) ||
-                (new_cfg->ui8_street_mode_power_limit_enabled > 1) ||
                 (new_cfg->ui8_street_mode_power_limit_enabled > 1) ||
 				!validHallRefAngles(new_cfg->ui8_hall_ref_angles) ||
 				((new_cfg->ui8_phase_angle_adj > 10) && (new_cfg->ui8_phase_angle_adj < 246)) ||

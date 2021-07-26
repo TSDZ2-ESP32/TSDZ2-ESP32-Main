@@ -35,7 +35,8 @@
 #define ERROR_BRAKE_APPLIED_DURING_POWER_ON       3  // currently not used
 #define ERROR_THROTTLE_APPLIED_DURING_POWER_ON    4  // currently not used
 #define ERROR_NO_SPEED_SENSOR_DETECTED            5  // currently not used
-#define ERROR_LOW_CONTROLLER_VOLTAGE              6  // controller works with no less than 15 V so give error code if voltage is too low
+#define ERROR_LOW_CONTROLLER_VOLTAGE              6  // currently not used
+#define ERROR_BATTERY_OVERCURRENT                 7
 #define ERROR_OVERVOLTAGE                         8
 #define ERROR_TEMPERATURE_LIMIT                   9
 #define ERROR_TEMPERATURE_MAX                     10
@@ -45,7 +46,7 @@
 #define BRAKE_STATE_BIT                           0x20
 
 // OEM Display error codes
-// N.B.: E01, E05, E07 are not available on XH18 display
+// N.B.: E01, E05, E07, E09 are not available on XH18 display
 #define OEM_NO_ERROR                            0
 #define OEM_ERROR_TORQUE_SENSOR                 2 // E02
 #define OEM_ERROR_CONTROLLER_FAILURE            3 // E03

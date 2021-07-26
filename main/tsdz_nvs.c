@@ -25,17 +25,12 @@ static const char* TSDZ_CFG_KEY  = "TSDZ_CFG";
 static const char* WH_OFFST_KEY  = "WH_OFFSET";
 static const char* ESP32_CFG_KEY = "ESP32_CFG";
 
-// NVS OTA Key values
-static const char* OTA_BOOT = "OTA";
-
 
 void tsdz_nvs_write_default_cfg(void);
-static char* get_ota(void);
 
 nvs_handle my_handle;
 
-// initialize the NVS and check OTA_BOOT flag.
-// return true if the OTA_BOOT flag is set
+// initialize the NVS.
 void tsdz_nvs_init(void) {
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)  {
