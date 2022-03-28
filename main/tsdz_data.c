@@ -34,34 +34,31 @@ struct_esp32_cfg esp32_cfg = {
     .lock_enabled = 0
 };
 
-struct_tsdz_status tsdz_status = {
+struct_tsdz_data tsdz_data = {
     .ui8_riding_mode = OFF_MODE,
     .ui8_assist_level = 0,
+    .ui8_system_state = 0,
     .ui16_wheel_speed_x10 = 0,
     .ui8_pedal_cadence_RPM = 0,
+    .ui16_pedal_torque_x100 = 0,
     .i16_motor_temperaturex10 = -999,
-    .ui16_pedal_power_x10 = 0,
+    .i16_pcb_temperaturex10 = -999,
     .ui16_battery_voltage_x1000 = 0,
     .ui8_battery_current_x10 = 0,
-    .ui8_system_state = 0,
     .ui16_battery_wh = 0,
-    .ui8_rxc_errors = 0,
-    .ui8_rxl_errors = 0,
-    .ui8_status3 = 0,
-    .ui8_status4 = 0,
-    .ui8_status5 = 0
-};
-
-struct_tsdz_debug tsdz_debug = {
     .ui8_adc_throttle = 0,
     .ui8_throttle = 0,
     .ui16_adc_pedal_torque_sensor = 0,
     .ui8_duty_cycle = 0,
     .ui16_motor_speed_erps = 0,
     .ui8_foc_angle = 0,
-    .ui16_pedal_torque_x100 = 0,
     .ui8_fw_hall_cnt_offset = 0,
-    .i16_pcb_temperaturex10 = -999,
+    .ui8_TorqueSmoothPct = 0,
+    .ui8_TorqueAVG = 0,
+    .ui8_TorqueMin = 0,
+    .ui8_TorqueMax = 0,
+    .ui8_rxc_errors = 0,
+    .ui8_rxl_errors = 0,
     .ui8_debugFlags = 0,
     .ui8_debug1 = 0,
     .ui8_debug2 = 0,
@@ -87,8 +84,8 @@ struct_tsdz_hall tsdz_hall = {
 // Then the values are overwritten at the startup with the values stored into NVS
 struct_tsdz_cfg tsdz_cfg = {
     .ui8_foc_angle_multiplicator = 27,
-    .ui8_motor_temperature_min_value_to_limit = 65,
-    .ui8_motor_temperature_max_value_to_limit = 80,
+    .ui8_motor_temperature_min_value_to_limit = 70,
+    .ui8_motor_temperature_max_value_to_limit = 85,
     .ui8_motor_acceleration = 25,
     .ui8_hall_offset_adj = 0,
     .ui8_max_speed = 45,
@@ -120,10 +117,12 @@ struct_tsdz_cfg tsdz_cfg = {
     .ui8_torque_assist_level = {15,40,65,90},
     .ui8_eMTB_assist_sensitivity = {6,10,14,18},
     .ui8_walk_assist_level = {40,55,70,85},
-    .ui8_flags = 2,
+    .ui8_flags = 2, // bit 0: Torque offset fix en/dis, bit 1: field weakening en/dis, bit 2: torque smooth en/dis
     .ui16_torque_offset_value = 0,
 	.ui8_hall_ref_angles = {217, 4, 47, 89, 132, 175}, // Array order: Hall states 6, 2, 3, 1, 5, 4
-    .ui8_hall_offsets = {44, 23, 44, 23, 44, 23}       // Array order: Hall states 6, 2, 3, 1, 5, 4
+    .ui8_hall_offsets = {44, 23, 44, 23, 44, 23},       // Array order: Hall states 6, 2, 3, 1, 5, 4
+    .ui8_torque_smooth_min = 6,
+    .ui8_torque_smooth_max = 12
 };
 
 uint8_t stm8_fw_version = -1;
@@ -180,19 +179,19 @@ void tsdz_data_update() {
 void processLcdMessage(const uint8_t lcd_oem_message[]) {
     switch(lcd_oem_message[1] & 0x5E) {
         case OEM_ASSIST_LEVEL4:
-            tsdz_status.ui8_assist_level = 4;
+            tsdz_data.ui8_assist_level = 4;
             break;
         case OEM_ASSIST_LEVEL3:
-            tsdz_status.ui8_assist_level = 3;
+            tsdz_data.ui8_assist_level = 3;
             break;
         case OEM_ASSIST_LEVEL2:
-            tsdz_status.ui8_assist_level = 2;
+            tsdz_data.ui8_assist_level = 2;
             break;
         case OEM_ASSIST_LEVEL1:
-            tsdz_status.ui8_assist_level = 1;
+            tsdz_data.ui8_assist_level = 1;
             break;
         case OEM_ASSIST_LEVEL0:
-            tsdz_status.ui8_assist_level = 0;
+            tsdz_data.ui8_assist_level = 0;
             break;
     }
 
@@ -201,14 +200,14 @@ void processLcdMessage(const uint8_t lcd_oem_message[]) {
 
     // check if long hold down button
     if (lcd_oem_message[1] & 0x20) {
-        if ((tsdz_status.ui16_wheel_speed_x10 < WALK_ASSIST_THRESHOLD_SPEED_X10) &&
-                  (tsdz_status.ui8_riding_mode != CRUISE_MODE)) {
-            tsdz_status.ui8_riding_mode = WALK_ASSIST_MODE;
+        if ((tsdz_data.ui16_wheel_speed_x10 < WALK_ASSIST_THRESHOLD_SPEED_X10) &&
+                  (tsdz_data.ui8_riding_mode != CRUISE_MODE)) {
+            tsdz_data.ui8_riding_mode = WALK_ASSIST_MODE;
             goto skip;
         } else if ((tsdz_cfg.ui8_cruise_mode_enabled) &&
-                   (tsdz_status.ui16_wheel_speed_x10 > CRUISE_THRESHOLD_SPEED_X10) &&
-                   (tsdz_status.ui8_riding_mode != WALK_ASSIST_MODE)) {
-            tsdz_status.ui8_riding_mode = CRUISE_MODE;
+                   (tsdz_data.ui16_wheel_speed_x10 > CRUISE_THRESHOLD_SPEED_X10) &&
+                   (tsdz_data.ui8_riding_mode != WALK_ASSIST_MODE)) {
+            tsdz_data.ui8_riding_mode = CRUISE_MODE;
             goto skip;
         }
     }
@@ -216,30 +215,30 @@ void processLcdMessage(const uint8_t lcd_oem_message[]) {
     // check the riding mode
     switch (ui8_app_assist_mode) {
         case APP_ASSIST_MODE_FORCE_POWER:
-            tsdz_status.ui8_riding_mode = POWER_ASSIST_MODE;
+            tsdz_data.ui8_riding_mode = POWER_ASSIST_MODE;
             break;
         case APP_ASSIST_MODE_FORCE_EMTB:
-            tsdz_status.ui8_riding_mode = eMTB_ASSIST_MODE;
+            tsdz_data.ui8_riding_mode = eMTB_ASSIST_MODE;
             break;
         case APP_ASSIST_MODE_FORCE_TORQUE:
-            tsdz_status.ui8_riding_mode = TORQUE_ASSIST_MODE;
+            tsdz_data.ui8_riding_mode = TORQUE_ASSIST_MODE;
             break;
         case APP_ASSIST_MODE_FORCE_CADENCE:
-            tsdz_status.ui8_riding_mode = CADENCE_ASSIST_MODE;
+            tsdz_data.ui8_riding_mode = CADENCE_ASSIST_MODE;
             break;
         default:
             switch (ui8_oem_wheel_diameter) {
                 case 27:
-                    tsdz_status.ui8_riding_mode = TORQUE_ASSIST_MODE;
+                    tsdz_data.ui8_riding_mode = TORQUE_ASSIST_MODE;
                     break;
                 case 28:
-                    tsdz_status.ui8_riding_mode = CADENCE_ASSIST_MODE;
+                    tsdz_data.ui8_riding_mode = CADENCE_ASSIST_MODE;
                     break;
                 case 29:
-                    tsdz_status.ui8_riding_mode = eMTB_ASSIST_MODE;
+                    tsdz_data.ui8_riding_mode = eMTB_ASSIST_MODE;
                     break;
                 default:
-                    tsdz_status.ui8_riding_mode = POWER_ASSIST_MODE;
+                    tsdz_data.ui8_riding_mode = POWER_ASSIST_MODE;
                     break;
             }
             break;
@@ -256,16 +255,16 @@ void processLcdMessage(const uint8_t lcd_oem_message[]) {
     // 25Km/h OFF : sends 45 (Km/h)
     switch (ui8_app_street_mode) {
         case STREET_MODE_FORCE_OFF:
-            tsdz_status.ui8_riding_mode &= 0x7f; // clear Street mode flag
+            tsdz_data.ui8_riding_mode &= 0x7f; // clear Street mode flag
             break;
         case STREET_MODE_FORCE_ON:
-            tsdz_status.ui8_riding_mode |= 0x80; // set Street mode flag
+            tsdz_data.ui8_riding_mode |= 0x80; // set Street mode flag
             break;
         case STREET_MODE_LCD_MASTER:
             if (lcd_oem_message[5] > 26)
-                tsdz_status.ui8_riding_mode &= 0x7f; // clear Street mode flag
+                tsdz_data.ui8_riding_mode &= 0x7f; // clear Street mode flag
             else
-                tsdz_status.ui8_riding_mode |= 0x80; // set Street mode flag
+                tsdz_data.ui8_riding_mode |= 0x80; // set Street mode flag
             break;
     }
 }
@@ -291,7 +290,7 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
         ui8_working_status |= 0x01;
     }
     // hold display on flag
-    if ((tsdz_debug.ui8_duty_cycle > 10) || (tsdz_status.ui16_wheel_speed_x10 > 10))
+    if ((tsdz_data.ui8_duty_cycle > 10) || (tsdz_data.ui16_wheel_speed_x10 > 10))
         ui8_working_status |= 0x04;
     ct_oem_message[2] = ui8_working_status;
 
@@ -300,28 +299,28 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
     ct_oem_message[4] = 0x46;
 
     // system status
-    if(((tsdz_status.ui8_system_state & ERROR_MOTOR_MASK) == ERROR_MOTOR_BLOCKED)
-            || ((tsdz_status.ui8_system_state & ERROR_MOTOR_MASK) == ERROR_BATTERY_OVERCURRENT)
+    if(((tsdz_data.ui8_system_state & CONTROLLER_ERROR_MASK) == ERROR_MOTOR_BLOCKED)
+            || ((tsdz_data.ui8_system_state & CONTROLLER_ERROR_MASK) == ERROR_BATTERY_OVERCURRENT)
             || (bike_locked != 0))
         ui8_error_code = OEM_ERROR_MOTOR_BLOCKED;
-    else if ((tsdz_status.ui8_system_state & ERROR_MOTOR_MASK) == ERROR_TORQUE_SENSOR)
+    else if ((tsdz_data.ui8_system_state & CONTROLLER_ERROR_MASK) == ERROR_TORQUE_SENSOR)
         ui8_error_code = OEM_ERROR_TORQUE_SENSOR;
-    else if (tsdz_status.ui8_system_state & ERROR_CONTROLLER_COMMUNICATION)
+    else if (tsdz_data.ui8_system_state & ERROR_CONTROLLER_COMMUNICATION)
         ui8_error_code = OEM_ERROR_CONTROLLER_FAILURE;
     else if (ui8_BatteryError == BATTERY_OVERVOLTAGE)
         ui8_error_code = OEM_ERROR_OVERVOLTAGE;
     if (tsdz_cfg.ui8_esp32_temp_control || tsdz_cfg.ui8_optional_ADC_function == TEMPERATURE_CONTROL) {
-        if (tsdz_status.i16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_max_value_to_limit*10) {
+        if (tsdz_data.i16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_max_value_to_limit*10) {
             // Temperature Error fixed
             temperatureError = 1;
             temperatureErrorOn = 1;
             temperatureErrorCounter = 0;
             ui8_error_code = OEM_ERROR_OVERTEMPERATURE;
-        } else if (tsdz_status.i16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_min_value_to_limit*10) {
+        } else if (tsdz_data.i16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_min_value_to_limit*10) {
             // Temperature Error blinking slow to fast
             if (temperatureError) {
                 temperatureErrorCounter++;
-                int counter = map(tsdz_status.i16_motor_temperaturex10,
+                int counter = map(tsdz_data.i16_motor_temperaturex10,
                         tsdz_cfg.ui8_motor_temperature_min_value_to_limit*10,
                         tsdz_cfg.ui8_motor_temperature_max_value_to_limit*10,
                         15,
@@ -346,7 +345,7 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
 
     // wheel speed
     // wait 4 sec from startup to send the speed. Max num of ticks for OEM LCD is 0x0707
-    if (tsdz_status.ui16_wheel_speed_x10 == 0 || (xTaskGetTickCount() < pdMS_TO_TICKS(4000))) {
+    if (tsdz_data.ui16_wheel_speed_x10 == 0 || (xTaskGetTickCount() < pdMS_TO_TICKS(4000))) {
         ct_oem_message[6] = 0x07;
         ct_oem_message[7] = 0x07;
     } else {
@@ -355,7 +354,7 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
         //              (sec/mm)                  *          (mm/rev)                    * (ticks/sec) = ticks/rev
         // and then using integer division round.
         // result = (dividend + (divisor / 2)) / divisor   (Eg. 16 / 10 -> 2  and  14 / 10 -> 1)
-        uint32_t tmp = ((ui8_oem_wheel_diameter * 1436336) + (tsdz_status.ui16_wheel_speed_x10 * 500)) / (tsdz_status.ui16_wheel_speed_x10 * 1000);
+        uint32_t tmp = ((ui8_oem_wheel_diameter * 1436336) + (tsdz_data.ui16_wheel_speed_x10 * 500)) / (tsdz_data.ui16_wheel_speed_x10 * 1000);
         // limit max value to 0x0707 (0 Km/h for OEM LCD)
         if (tmp > 0x0707)
             tmp = 0x0707;
@@ -366,143 +365,132 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
     ct_oem_message[8] = crc8(ct_oem_message, CT_OEM_MSG_BYTES - 1);
 }
 
-
 void processControllerMessage(const uint8_t ct_os_message[]) {
-    // update motor controller status
+    // update System Status
+    // Bit 3: brake state
+    // Bit 4-7: Controller Status
+    if (ct_os_message[1] & 0x08)
+        tsdz_data.ui8_system_state |= BRAKE_STATE_BIT;
+    else
+        tsdz_data.ui8_system_state &= ~BRAKE_STATE_BIT;
+    // Controller status
+    tsdz_data.ui8_system_state = (tsdz_data.ui8_system_state & (~CONTROLLER_ERROR_MASK)) | ((ct_os_message[1] >> 4) & CONTROLLER_ERROR_MASK);
 
     // battery current x10
-    tsdz_status.ui8_battery_current_x10 = ct_os_message[3];
+    tsdz_data.ui8_battery_current_x10 = ct_os_message[4];
 
     // battery voltage
     // add voltage dropout due to battery internal resistance
-    uint32_t tmp = (uint32_t)tsdz_status.ui8_battery_current_x10 * (uint32_t)tsdz_cfg.ui16_battery_pack_resistance_x1000 / (uint32_t)10;
-    tsdz_status.ui16_battery_voltage_x1000 = (((uint16_t) ct_os_message[2]) << 8) + ((uint16_t) ct_os_message[1]) + (uint16_t)tmp;
+    uint32_t tmp = (uint32_t)tsdz_data.ui8_battery_current_x10 * (uint32_t)tsdz_cfg.ui16_battery_pack_resistance_x1000 / (uint32_t)10;
+    tsdz_data.ui16_battery_voltage_x1000 = (((uint16_t) ct_os_message[3]) << 8) + ((uint16_t) ct_os_message[2]) + (uint16_t)tmp;
 
-    // calculate battery Power filterd for Wh calcualtion
-    uint32_t ui32_battery_power_temp_x10 = ((uint32_t) tsdz_status.ui16_battery_voltage_x1000 * tsdz_status.ui8_battery_current_x10) / 1000;
+    // calculate battery Power filtered for Wh calculation
+    uint32_t ui32_battery_power_temp_x10 = ((uint32_t) tsdz_data.ui16_battery_voltage_x1000 * tsdz_data.ui8_battery_current_x10) / 1000;
     ui16_battery_power_filtered_x10 = filter(ui32_battery_power_temp_x10, ui16_battery_power_filtered_x10, 72);
 
     // wheel speed
-    // bit 0..11; Speedx10 (Km/h)
-    // bit 12: free for future use
-    // bit 13: free for future use
-    // bit 14: flag for MAIN_TIME_DEBUG present
-    // bit 15: flag for PWM_TIME_DEBUG present
-    tsdz_status.ui16_wheel_speed_x10 = (((uint16_t) (ct_os_message[5] & 0x0f)) << 8) + ((uint16_t) ct_os_message[4]);
-    tsdz_debug.ui8_debugFlags = ct_os_message[5] & 0xf0;
-    /*
-    if (ct_os_message[5] & 0x20)
-        tsdz_debug.ui8_debugFlags |= 0x20;
-    else
-        tsdz_debug.ui8_debugFlags &= (~0x20);
-    if (ct_os_message[5] & 0x40)
-		tsdz_debug.ui8_debugFlags |= 0x40;
-    else
-    	tsdz_debug.ui8_debugFlags &= (~0x40);
-	if (ct_os_message[5] & 0x80)
-		tsdz_debug.ui8_debugFlags |= 0x80;
-    else
-    	tsdz_debug.ui8_debugFlags &= (~0x80);
-    */
+    // bit 0..10; Speedx10 (Km/h)
+    // bit 11..15; FOC Angle
+    tsdz_data.ui16_wheel_speed_x10 = (((uint16_t) (ct_os_message[6] & 0x07)) << 8) + ((uint16_t) ct_os_message[5]);
+    // FOC angle
+    tsdz_data.ui8_foc_angle = ct_os_message[6] >> 3;
 
     // pedal cadence
-    tsdz_status.ui8_pedal_cadence_RPM = ct_os_message[6];
+    tsdz_data.ui8_pedal_cadence_RPM = ct_os_message[7];
 
-    // Bit 0: brake state
-    // Bit 1-7: FW Version (0 to 127)
-    if (ct_os_message[7] & 1)
-        tsdz_status.ui8_system_state |= BRAKE_STATE_BIT;
-    else
-        tsdz_status.ui8_system_state &= ~BRAKE_STATE_BIT;
-    stm8_fw_version = ct_os_message[7] >> 1;
-
-    // controller system state
-    tsdz_status.ui8_system_state = (tsdz_status.ui8_system_state & (~ERROR_MOTOR_MASK)) | (ct_os_message[8] & ERROR_MOTOR_MASK);
+    // pedal torque x100
+    tsdz_data.ui16_pedal_torque_x100 = (((uint16_t) ct_os_message[9]) << 8) + ((uint16_t) ct_os_message[8]);
+    // Human power x10 calculated from torque and cadence
+    //tsdz_data.ui16_pedal_power_x10 = ((uint32_t)tsdz_data.ui16_pedal_torque_x100 * tsdz_data.ui8_pedal_cadence_RPM) / 96;
 
     // motor temperature
     if (!tsdz_cfg.ui8_esp32_temp_control && (tsdz_cfg.ui8_optional_ADC_function == TEMPERATURE_CONTROL))
-        tsdz_status.i16_motor_temperaturex10 = ct_os_message[9]*10;
+        tsdz_data.i16_motor_temperaturex10 = ct_os_message[10]*10;
 
+    // Calculate Battery Level and check for Battery Over/Under-voltage
+    // Update System Status for Battery errors and Temperature
     update_battery();
-    if ((tsdz_status.ui8_system_state & ERROR_MOTOR_MASK) == NO_ERROR) {
+    if ((tsdz_data.ui8_system_state & CONTROLLER_ERROR_MASK) == NO_ERROR) {
         if (ui8_BatteryError == BATTERY_OVERVOLTAGE)
-            tsdz_status.ui8_system_state |= ERROR_OVERVOLTAGE;
+            tsdz_data.ui8_system_state |= ERROR_OVERVOLTAGE;
         else if (tsdz_cfg.ui8_esp32_temp_control || tsdz_cfg.ui8_optional_ADC_function == TEMPERATURE_CONTROL) {
-            if (tsdz_status.i16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_max_value_to_limit*10)
-                tsdz_status.ui8_system_state |= ERROR_TEMPERATURE_MAX;
-            else if (tsdz_status.i16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_min_value_to_limit*10)
-                tsdz_status.ui8_system_state |= ERROR_TEMPERATURE_LIMIT;
+            if (tsdz_data.i16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_max_value_to_limit*10)
+                tsdz_data.ui8_system_state |= ERROR_TEMPERATURE_MAX;
+            else if (tsdz_data.i16_motor_temperaturex10 >= tsdz_cfg.ui8_motor_temperature_min_value_to_limit*10)
+                tsdz_data.ui8_system_state |= ERROR_TEMPERATURE_LIMIT;
         }
     }
 
     // PWM duty_cycle
-    tsdz_debug.ui8_duty_cycle = ct_os_message[10];
+    tsdz_data.ui8_duty_cycle = ct_os_message[11];
 
     // motor speed in ERPS
-    tsdz_debug.ui16_motor_speed_erps = (((uint16_t) ct_os_message[12]) << 8) + ((uint16_t) ct_os_message[11]);
-
-    // FOC angle
-    tsdz_debug.ui8_foc_angle = ct_os_message[13];
+    tsdz_data.ui16_motor_speed_erps = (((uint16_t) ct_os_message[13]) << 8) + ((uint16_t) ct_os_message[12]);
 
     // Field Weakening Hall counter offset
-    tsdz_debug.ui8_fw_hall_cnt_offset = ct_os_message[14];
+    tsdz_data.ui8_fw_hall_cnt_offset = ct_os_message[14];
 
-    if (ui8_app_assist_mode == APP_ASSIST_MODE_MOTOR_CALIB) {
-        tsdz_hall.ui16_hall_1 = (((uint16_t) ct_os_message[16]) << 8) + ((uint16_t) ct_os_message[15]);
-        tsdz_hall.ui16_hall_2 = (((uint16_t) ct_os_message[18]) << 8) + ((uint16_t) ct_os_message[17]);
-        tsdz_hall.ui16_hall_3 = (((uint16_t) ct_os_message[20]) << 8) + ((uint16_t) ct_os_message[19]);
-        tsdz_hall.ui16_hall_4 = (((uint16_t) ct_os_message[22]) << 8) + ((uint16_t) ct_os_message[21]);
-        tsdz_hall.ui16_hall_5 = (((uint16_t) ct_os_message[24]) << 8) + ((uint16_t) ct_os_message[23]);
-        tsdz_hall.ui16_hall_6 = (((uint16_t) ct_os_message[26]) << 8) + ((uint16_t) ct_os_message[25]);
-        tsdz_status.ui16_pedal_power_x10 = 0;
-        hall_calib_data_valid = 1;
-    } else {
-        hall_calib_data_valid = 0;
+    switch (ct_os_message[1] & 0x03) {
+        case 0: // Normal Message
+            hall_calib_data_valid = 0;
 
-        // ADC pedal torque
-        tsdz_debug.ui16_adc_pedal_torque_sensor = (((uint16_t) ct_os_message[16]) << 8) + ((uint16_t) ct_os_message[15]);
+            stm8_fw_version = ct_os_message[15];
 
-        // pedal torque x100
-        tsdz_debug.ui16_pedal_torque_x100 = (((uint16_t) ct_os_message[18]) << 8) + ((uint16_t) ct_os_message[17]);
-        // human power x10
-        // calculated from torque and cadence
-        tsdz_status.ui16_pedal_power_x10 = ((uint32_t)tsdz_debug.ui16_pedal_torque_x100 * tsdz_status.ui8_pedal_cadence_RPM) / 96;
+            // ADC pedal torque
+            tsdz_data.ui16_adc_pedal_torque_sensor = (((uint16_t) ct_os_message[17]) << 8) + ((uint16_t) ct_os_message[16]);
 
-        // value from optional ADC channel
-        tsdz_debug.ui8_adc_throttle = ct_os_message[19];
+            // value from optional ADC channel
+            tsdz_data.ui8_adc_throttle = ct_os_message[18];
 
-        // throttle or temperature control mapped from 0 to 255
-        // TODO: this field is useless and is not used in the Android app
-        tsdz_debug.ui8_throttle = ct_os_message[20];
+            // throttle or temperature control mapped from 0 to 255
+            // TODO: this field is useless and is not used in the Android app
+            tsdz_data.ui8_throttle = ct_os_message[19];
 
-        // if PWM_TIME_DEBUG or MAIN_TIME_DEBUG data present
-        if (ct_os_message[5] & 0xC0) {
-            // Debug data present
-            if (ct_os_message[5] & 0x40)
-                tsdz_debug.ui8_debug2 = ct_os_message[21];
-            if (ct_os_message[5] & 0x80) {
-                tsdz_debug.ui8_debug3 = ct_os_message[22];
-                tsdz_debug.ui8_debug4 = ct_os_message[23];
+            // Torque Smooth % of last 2 sec
+            tsdz_data.ui8_TorqueSmoothPct = ct_os_message[20];
+
+            ESP_LOGI(TAG, "msg[21]=%d", ct_os_message[21]);
+            switch (ct_os_message[21]) {
+                case 0: // Wheel and crank revolutions
+                    // wheel revolutions
+                    wheel_revolutions = (((uint32_t) ct_os_message[24]) << 16)
+                            + (((uint32_t) ct_os_message[23]) << 8)
+                            + ((uint32_t) ct_os_message[22]);
+
+                    // crank revolutions
+                    crank_revolutions = (((uint16_t) ct_os_message[26]) << 8) + ((uint16_t) ct_os_message[25]);
+                    break;
+                case 1: // pedal revolution torque values
+                	tsdz_data.ui8_debugFlags = 0;
+                    tsdz_data.ui8_TorqueAVG = ct_os_message[22];
+                    tsdz_data.ui8_TorqueMin = ct_os_message[23];
+                    tsdz_data.ui8_TorqueMax = ct_os_message[24];
+                    break;
+                case 2: // PWM Time debug data
+                    tsdz_data.ui8_debugFlags = 0x20;
+                    tsdz_data.ui8_debug1 = ct_os_message[22];
+                    tsdz_data.ui8_debug2 = ct_os_message[23];
+                    tsdz_data.ui8_debug3 = ct_os_message[24];
+                    tsdz_data.ui8_debug4 = ct_os_message[25];
+                    tsdz_data.ui8_debug5 = ct_os_message[26];
+                    break;
+                case 3: // Hall errors debug data
+                    tsdz_data.ui8_debugFlags = 0x40;
+                    tsdz_data.ui8_debug1 = ct_os_message[22];
+                    tsdz_data.ui8_debug2 = ct_os_message[23];
+                    break;
             }
-        } else {
-            // wheel revolutions
-            wheel_revolutions = (((uint32_t) ct_os_message[23]) << 16)
-                    + (((uint32_t) ct_os_message[22]) << 8)
-                    + ((uint32_t) ct_os_message[21]);
-        }
-
-        // if MAIN_TIME_DEBUG or HALL_DEBUG data present
-        if (ct_os_message[5] & 0xA0) {
-            // Debug data present
-            tsdz_debug.ui8_debug5 = ct_os_message[24];
-            tsdz_debug.ui8_debug6 = ct_os_message[25];
-        } else {
-            // crank revolutions
-            crank_revolutions = (((uint16_t) ct_os_message[25]) << 8) + ((uint16_t) ct_os_message[24]);
-        }
-
-        // not used or debug Motor loop time if (ct_os_message[5] & 0x40)
-        tsdz_debug.ui8_debug1 = ct_os_message[26];
+            ESP_LOGI(TAG, "dbg=%d", tsdz_data.ui8_debugFlags);
+            break;
+        case 1: // Motor Hall Calibration Message
+            tsdz_hall.ui16_hall_1 = (((uint16_t) ct_os_message[16]) << 8) + ((uint16_t) ct_os_message[15]);
+            tsdz_hall.ui16_hall_2 = (((uint16_t) ct_os_message[18]) << 8) + ((uint16_t) ct_os_message[17]);
+            tsdz_hall.ui16_hall_3 = (((uint16_t) ct_os_message[20]) << 8) + ((uint16_t) ct_os_message[19]);
+            tsdz_hall.ui16_hall_4 = (((uint16_t) ct_os_message[22]) << 8) + ((uint16_t) ct_os_message[21]);
+            tsdz_hall.ui16_hall_5 = (((uint16_t) ct_os_message[24]) << 8) + ((uint16_t) ct_os_message[23]);
+            tsdz_hall.ui16_hall_6 = (((uint16_t) ct_os_message[26]) << 8) + ((uint16_t) ct_os_message[25]);
+            hall_calib_data_valid = 1;
+            break;
     }
 }
 
@@ -520,44 +508,44 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
         lcd_os_message[2] = OFF_MODE;
     else if (ui8_app_assist_mode == APP_ASSIST_MODE_MOTOR_CALIB)
         lcd_os_message[2] = MOTOR_CALIBRATION_MODE;
-    else if (tsdz_status.ui8_assist_level == 0)
+    else if (tsdz_data.ui8_assist_level == 0)
         lcd_os_message[2] = OFF_MODE;
     else
-        lcd_os_message[2] = tsdz_status.ui8_riding_mode & 0x7f; // mask bit 7 used as Street mode flag
+        lcd_os_message[2] = tsdz_data.ui8_riding_mode & 0x7f; // mask bit 7 used as Street mode flag
 
     // riding mode parameter
     switch (lcd_os_message[2]) {
         case POWER_ASSIST_MODE:
-            if (tsdz_status.ui8_assist_level > 0) {
-                lcd_os_message[3] = tsdz_cfg.ui8_power_assist_level[tsdz_status.ui8_assist_level - 1];
+            if (tsdz_data.ui8_assist_level > 0) {
+                lcd_os_message[3] = tsdz_cfg.ui8_power_assist_level[tsdz_data.ui8_assist_level - 1];
             } else {
                 lcd_os_message[3] = 0;
             }
             break;
         case CADENCE_ASSIST_MODE:
-            if (tsdz_status.ui8_assist_level > 0) {
-                lcd_os_message[3] = tsdz_cfg.ui8_cadence_assist_level[tsdz_status.ui8_assist_level - 1];
+            if (tsdz_data.ui8_assist_level > 0) {
+                lcd_os_message[3] = tsdz_cfg.ui8_cadence_assist_level[tsdz_data.ui8_assist_level - 1];
             } else {
                 lcd_os_message[3] = 0;
             }
             break;
         case TORQUE_ASSIST_MODE:
-            if (tsdz_status.ui8_assist_level > 0) {
-                lcd_os_message[3] = tsdz_cfg.ui8_torque_assist_level[tsdz_status.ui8_assist_level - 1];
+            if (tsdz_data.ui8_assist_level > 0) {
+                lcd_os_message[3] = tsdz_cfg.ui8_torque_assist_level[tsdz_data.ui8_assist_level - 1];
             } else {
                 lcd_os_message[3] = 0;
             }
             break;
         case eMTB_ASSIST_MODE:
-            if (tsdz_status.ui8_assist_level > 0) {
-                lcd_os_message[3] = tsdz_cfg.ui8_eMTB_assist_sensitivity[tsdz_status.ui8_assist_level - 1];
+            if (tsdz_data.ui8_assist_level > 0) {
+                lcd_os_message[3] = tsdz_cfg.ui8_eMTB_assist_sensitivity[tsdz_data.ui8_assist_level - 1];
             } else {
                 lcd_os_message[3] = 0;
             }
             break;
         case WALK_ASSIST_MODE:
-            if (tsdz_status.ui8_assist_level > 0) {
-                lcd_os_message[3] = tsdz_cfg.ui8_walk_assist_level[tsdz_status.ui8_assist_level - 1];
+            if (tsdz_data.ui8_assist_level > 0) {
+                lcd_os_message[3] = tsdz_cfg.ui8_walk_assist_level[tsdz_data.ui8_assist_level - 1];
             } else {
                 lcd_os_message[3] = 0;
             }
@@ -585,7 +573,7 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
 
             // max battery current in amps
             if (tsdz_cfg.ui8_esp32_temp_control) {
-                lcd_os_message[7] = map((uint32_t) tsdz_status.i16_motor_temperaturex10,
+                lcd_os_message[7] = map((uint32_t) tsdz_data.i16_motor_temperaturex10,
                         (uint32_t) tsdz_cfg.ui8_motor_temperature_min_value_to_limit * 10,
                         (uint32_t) tsdz_cfg.ui8_motor_temperature_max_value_to_limit * 10,
                         (uint32_t) tsdz_cfg.ui8_battery_max_current,
@@ -594,7 +582,7 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
                 lcd_os_message[7] = tsdz_cfg.ui8_battery_max_current;
 
             // battery power limit (based on Street Mode enable status)
-            if ((tsdz_status.ui8_riding_mode & 0x80) && tsdz_cfg.ui8_street_mode_power_limit_enabled) {
+            if ((tsdz_data.ui8_riding_mode & 0x80) && tsdz_cfg.ui8_street_mode_power_limit_enabled) {
                 lcd_os_message[8] = tsdz_cfg.ui8_street_mode_power_limit_div25;
             } else {
                 lcd_os_message[8] = tsdz_cfg.ui8_target_max_battery_power_div25;
@@ -633,7 +621,7 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
             lcd_os_message[8] = (uint8_t) (tsdz_cfg.ui16_wheel_perimeter >> 8);
 
             // wheel max speed (based on Street Mode enable status)
-            if (tsdz_status.ui8_riding_mode & 0x80)
+            if (tsdz_data.ui8_riding_mode & 0x80)
                 lcd_os_message[9] = tsdz_cfg.ui8_street_max_speed;
             else
                 lcd_os_message[9] = tsdz_cfg.ui8_max_speed;
@@ -643,7 +631,7 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
             break;
         case 2:
             // optional ADC function, disable throttle if is disabled in Street Mode
-            if ((tsdz_status.ui8_riding_mode & 0x80) && !tsdz_cfg.ui8_street_mode_throttle_enabled && tsdz_cfg.ui8_optional_ADC_function == THROTTLE_CONTROL) {
+            if ((tsdz_data.ui8_riding_mode & 0x80) && !tsdz_cfg.ui8_street_mode_throttle_enabled && tsdz_cfg.ui8_optional_ADC_function == THROTTLE_CONTROL) {
                 lcd_os_message[5] = 0;
             } else {
                 lcd_os_message[5] = tsdz_cfg.ui8_optional_ADC_function;
@@ -699,6 +687,16 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
             lcd_os_message[9]  = tsdz_cfg.ui8_hall_offsets[4] + tsdz_cfg.ui8_hall_offset_adj;
             lcd_os_message[10] = tsdz_cfg.ui8_hall_offsets[5] + tsdz_cfg.ui8_hall_offset_adj;
             break;
+        case 5:
+            if (tsdz_cfg.ui8_flags & 0x04)
+                // Torque smooth enable
+                lcd_os_message[5] = 1;
+            else
+                // Torque smooth disable
+                lcd_os_message[5] = 0;
+            lcd_os_message[6] = tsdz_cfg.ui8_torque_smooth_min;
+            lcd_os_message[7] = tsdz_cfg.ui8_torque_smooth_max;
+            break;
     }
 
     // prepare crc of the package
@@ -712,7 +710,7 @@ void getControllerMessage(uint8_t lcd_os_message[]) {
     lcd_os_message[LCD_OS_MSG_BYTES-2] = (uint8_t) (ui16_crc_tx & 0xff);
     lcd_os_message[LCD_OS_MSG_BYTES-1] = (uint8_t) (ui16_crc_tx >> 8) & 0xff;
 
-    if (++ui8_message_ID > 4)
+    if (++ui8_message_ID > 5)
     	ui8_message_ID = 0;
 }
 
@@ -775,7 +773,7 @@ void update_energy(void)
     static uint8_t ui8_wh_reset;
 
     // reset watt-hour value if battery voltage is over threshold set from user, but only do this once for every power on
-    if (((tsdz_status.ui16_battery_voltage_x1000) > (tsdz_cfg.ui16_battery_voltage_reset_wh_counter_x10 * 100)) && (!ui8_wh_reset))
+    if (((tsdz_data.ui16_battery_voltage_x1000) > (tsdz_cfg.ui16_battery_voltage_reset_wh_counter_x10 * 100)) && (!ui8_wh_reset))
     {
         ui8_wh_reset = 1;
         ui32_wh_x10_offset = 0;
@@ -785,19 +783,19 @@ void update_energy(void)
 
     // calculate watt-hours since last full charge
     ui32_wh_x10 = ui32_wh_x10_offset + (ui32_wh_sum_x10 / 3600);
-    tsdz_status.ui16_battery_wh = (uint16_t)(ui32_wh_x10 / 10);
+    tsdz_data.ui16_battery_wh = (uint16_t)(ui32_wh_x10 / 10);
 }
 
 // Calculate battery level between 0x00 and 0x0C and check battery under/over-voltage
 void update_battery() {
     // if cell voltage is less than 2V -> overvoltage
-    if ((tsdz_status.ui16_battery_voltage_x1000 / 10 / (uint16_t)tsdz_cfg.ui8_battery_cells_number) <= 200) {
+    if ((tsdz_data.ui16_battery_voltage_x1000 / 10 / (uint16_t)tsdz_cfg.ui8_battery_cells_number) <= 200) {
         ui8_BatteryLevel = 0;
         ui8_BatteryError = BATTERY_UNDERVOLTAGE;
         return;
     }
 
-    uint16_t ui16_cell_voltage_x100 = (tsdz_status.ui16_battery_voltage_x1000 / 10 / (uint16_t)tsdz_cfg.ui8_battery_cells_number)-200;
+    uint16_t ui16_cell_voltage_x100 = (tsdz_data.ui16_battery_voltage_x1000 / 10 / (uint16_t)tsdz_cfg.ui8_battery_cells_number)-200;
 
     ui8_BatteryError = NO_ERROR;
     if (ui16_cell_voltage_x100 >= tsdz_cfg.ui8_li_io_cell_overvolt_x100) {

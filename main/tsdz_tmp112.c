@@ -116,9 +116,9 @@ void tsdz_tmp112_read(void) {
         if(temp > 2047)
             temp -= 4096;
         //float cTemp = temp * 0.0625; // temperature in Celsius
-        tsdz_debug.i16_pcb_temperaturex10 = (int16_t)(temp * 5 / 8);
+        tsdz_data.i16_pcb_temperaturex10 = (int16_t)(temp * 5 / 8);
     } else {
         ESP_LOGW(TAG,"TMP112 read error: %d", err);
-        tsdz_debug.i16_pcb_temperaturex10 = -999;
+        tsdz_data.i16_pcb_temperaturex10 = -999;
     }
 }

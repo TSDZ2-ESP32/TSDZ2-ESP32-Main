@@ -4,6 +4,7 @@
  *  Created on: 10 set 2019
  *      Author: Max
  */
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 
 #include <string.h>
 #include "freertos/FreeRTOS.h"
@@ -188,7 +189,6 @@ static struct gatts_profile_inst gatts_profile_tab[PROFILE_NUM] = {
 /* TSDZ Service */
 static const uint16_t GATTS_SERVICE_UUID_TSDZ      = 0x00FF;
 static const uint16_t GATTS_CHAR_UUID_TSDZ_STATUS  = 0xFF01;
-static const uint16_t GATTS_CHAR_UUID_TSDZ_DEBUG   = 0xFF02;
 static const uint16_t GATTS_CHAR_UUID_TSDZ_CFG     = 0xFF03;
 static const uint16_t GATTS_CHAR_UUID_TSDZ_COMMAND = 0xFF04;
 
@@ -332,32 +332,11 @@ static const esp_gatts_attr_db_t tsdz_gatt_db[IDX_TSDZ_DB_NUM] = {
         [IDX_CHAR_VAL_STATUS] =
         { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
                 (uint8_t *) &GATTS_CHAR_UUID_TSDZ_STATUS, ESP_GATT_PERM_READ,
-                sizeof(tsdz_status), sizeof(tsdz_status),
-                (uint8_t *) (&tsdz_status) } },
+                sizeof(struct_tsdz_data), sizeof(struct_tsdz_data),
+                (uint8_t *) (&tsdz_data) } },
 
         // Client Characteristic Configuration Descriptor
         [IDX_CHAR_CFG_STATUS] =
-        { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
-                (uint8_t *) &character_client_config_uuid, ESP_GATT_PERM_READ
-                        | ESP_GATT_PERM_WRITE_ENCRYPTED, sizeof(uint16_t),
-                sizeof(tsdz_attr_ccc), (uint8_t *) tsdz_attr_ccc } },
-
-        // Characteristic Declaration
-        [IDX_CHAR_DEBUG] =
-        { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
-                (uint8_t *) &character_declaration_uuid, ESP_GATT_PERM_READ,
-                CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE,
-                (uint8_t *) &char_prop_notify } },
-
-        // Characteristic Value
-        [IDX_CHAR_VAL_DEBUG] =
-        { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
-                (uint8_t *) &GATTS_CHAR_UUID_TSDZ_DEBUG, ESP_GATT_PERM_READ,
-                sizeof(tsdz_debug), sizeof(tsdz_debug),
-                (uint8_t *) (&tsdz_debug) } },
-
-        // Client Characteristic Configuration Descriptor
-        [IDX_CHAR_CFG_DEBUG] =
         { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
                 (uint8_t *) &character_client_config_uuid, ESP_GATT_PERM_READ
                         | ESP_GATT_PERM_WRITE_ENCRYPTED, sizeof(uint16_t),
@@ -369,13 +348,13 @@ static const esp_gatts_attr_db_t tsdz_gatt_db[IDX_TSDZ_DB_NUM] = {
                 (uint8_t *) &character_declaration_uuid, ESP_GATT_PERM_READ,
                 CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE,
                 (uint8_t *) &char_prop_read_write } },
-
         // Characteristic Value
         [IDX_CHAR_VAL_CONFIG] =
         { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
                 (uint8_t *) &GATTS_CHAR_UUID_TSDZ_CFG,
                 ESP_GATT_PERM_WRITE_ENCRYPTED|ESP_GATT_PERM_READ_ENCRYPTED, sizeof(tsdz_cfg),
                 sizeof(tsdz_cfg), (uint8_t *) (&tsdz_cfg) } },
+
         // Characteristic Declaration
         [IDX_CHAR_COMMAND] =
         { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
@@ -392,7 +371,7 @@ static const esp_gatts_attr_db_t tsdz_gatt_db[IDX_TSDZ_DB_NUM] = {
         { { ESP_GATT_AUTO_RSP }, { ESP_UUID_LEN_16,
                 (uint8_t *) &character_client_config_uuid, ESP_GATT_PERM_READ
                         | ESP_GATT_PERM_WRITE_ENCRYPTED, sizeof(uint16_t),
-                sizeof(tsdz_attr_ccc), (uint8_t *) tsdz_attr_ccc } },
+                sizeof(tsdz_attr_ccc), (uint8_t *) tsdz_attr_ccc } }
 };
 
 /* Cyclcing Power Service Full Database Description  */
@@ -599,15 +578,6 @@ esp_gatt_status_t handle_write_value(uint16_t handle, uint8_t *value, uint16_t l
             ESP_LOGE(TAG, "IDX_CHAR_CFG_STATUS unknown descr value");
         }
         return ESP_GATT_OK;
-    } else if (tsdz_handle_table[IDX_CHAR_CFG_DEBUG] == handle) {
-        if (value[0] == 0x01){
-            ESP_LOGI(TAG, "IDX_CHAR_CFG_DEBUG notify enable");
-        } else if (value[0] == 0x00){
-            ESP_LOGI(TAG, "IDX_CHAR_CFG_DEBUG notify disable ");
-        } else{
-            ESP_LOGE(TAG, "IDX_CHAR_CFG_DEBUG unknown descr value");
-        }
-        return ESP_GATT_OK;
     } else if (tsdz_handle_table[IDX_CHAR_CFG_COMMAND] == handle) {
         if (value[0] == 0x01){
             ESP_LOGI(TAG, "IDX_CHAR_CFG_COMMAND notify enable");
@@ -719,12 +689,12 @@ static void gatts_tsdz_profile_handler(esp_gatts_cb_event_t event, esp_gatt_if_t
     }
     break;
     case ESP_GATTS_READ_EVT:
-        ESP_LOGI(TAG, "T ESP_GATTS_READ_EVT");
+        ESP_LOGD(TAG, "T ESP_GATTS_READ_EVT");
         break;
     case ESP_GATTS_WRITE_EVT:
-        //ESP_LOGI(TAG, "T ESP_GATTS_WRITE_EVT");
+        ESP_LOGD(TAG, "T ESP_GATTS_WRITE_EVT");
         if (!param->write.is_prep){
-            //ESP_LOGI(TAG, "GATT_WRITE_EVT, handle = %d, value len = %d, value :", param->write.handle, param->write.len);
+            ESP_LOGD(TAG, "GATT_WRITE_EVT, handle = %d, value len = %d, value :", param->write.handle, param->write.len);
             write_event_env(gatts_if, param);
         }else{
             /* handle prepare write */
@@ -732,7 +702,7 @@ static void gatts_tsdz_profile_handler(esp_gatts_cb_event_t event, esp_gatt_if_t
         }
         break;
     case ESP_GATTS_EXEC_WRITE_EVT:
-        ESP_LOGI(TAG, "T ESP_GATTS_EXEC_WRITE_EVT");
+        ESP_LOGD(TAG, "T ESP_GATTS_EXEC_WRITE_EVT");
         exec_write_event_env(&prepare_write_env, param);
         break;
     case ESP_GATTS_MTU_EVT:
@@ -1022,16 +992,9 @@ void tsdz_bt_update(void) {
         ret = esp_ble_gatts_get_attr_value(tsdz_handle_table[IDX_CHAR_CFG_STATUS], &l, &value);
         if (ret==ESP_OK  && l==2 && (value[0]&0x01))
             ret = esp_ble_gatts_send_indicate(gatts_profile_tab[TSDZ_PROFILE].gatts_if, gatts_profile_tab[TSDZ_PROFILE].conn_id, tsdz_handle_table[IDX_CHAR_VAL_STATUS],
-                    sizeof(tsdz_status), (uint8_t *)(&tsdz_status), false);
+                    sizeof(tsdz_data), (uint8_t *)(&tsdz_data), false);
         if (ret){
             ESP_LOGE(TAG, "tsdz_bt_update, tsdz_status notification failed, error code = %x", ret);
-        }
-        ret = esp_ble_gatts_get_attr_value(tsdz_handle_table[IDX_CHAR_CFG_DEBUG], &l, &value);
-        if (ret==ESP_OK  && l==2 && (value[0]&0x01))
-            ret |= esp_ble_gatts_send_indicate(gatts_profile_tab[TSDZ_PROFILE].gatts_if, gatts_profile_tab[TSDZ_PROFILE].conn_id, tsdz_handle_table[IDX_CHAR_VAL_DEBUG],
-                sizeof(tsdz_debug), (uint8_t *)(&tsdz_debug), false);
-        if (ret){
-            ESP_LOGE(TAG, "tsdz_bt_update, tsdz_debug notification failed, error code = %x", ret);
         }
     }
 }
@@ -1061,7 +1024,7 @@ void cycling_bt_update(void) {
             cyclingMsg[i++] = (uint8_t)((flags >> 8) & 0xFF);
 
             // intantaneus Power (W)
-            tmp = tsdz_status.ui16_battery_voltage_x1000 * tsdz_status.ui8_battery_current_x10 / 10000;
+            tmp = tsdz_data.ui16_battery_voltage_x1000 * tsdz_data.ui8_battery_current_x10 / 10000;
             ESP_LOGI(TAG, "power:%d", tmp&0xffff);
             cyclingMsg[i++] = (uint8_t)(tmp & 0xff);
             cyclingMsg[i++] = (uint8_t)((tmp >> 8) & 0xff);
@@ -1074,9 +1037,9 @@ void cycling_bt_update(void) {
             cyclingMsg[i++] = (uint8_t)((wheel_revolutions>>24) & 0xff);
 
             // last Wheel revolution time (sec/2048)
-			if ( (wheel_revolutions > dCumulativeWheelRev) && (tsdz_status.ui16_wheel_speed_x10 > 0) ) {
+			if ( (wheel_revolutions > dCumulativeWheelRev) && (tsdz_data.ui16_wheel_speed_x10 > 0) ) {
 				tmp = (wheel_revolutions - dCumulativeWheelRev) * (uint32_t)tsdz_cfg.ui16_wheel_perimeter * 2048L
-						 / ((uint32_t)tsdz_status.ui16_wheel_speed_x10 * 1000L / 36L);
+						 / ((uint32_t)tsdz_data.ui16_wheel_speed_x10 * 1000L / 36L);
 				tmp += dLastWheelEventTime;
 				dLastWheelEventTime = tmp & 0xffff;
 			}
@@ -1091,9 +1054,9 @@ void cycling_bt_update(void) {
             cyclingMsg[i++] = (uint8_t)((crank_revolutions>>8) & 0xff);
 
             // Crank revolution time (sec/1024) (60*1024/rmp)
-			if ( (crank_revolutions > dCumulativeCrankRev) && (tsdz_status.ui8_pedal_cadence_RPM > 0) ) {
+			if ( (crank_revolutions > dCumulativeCrankRev) && (tsdz_data.ui8_pedal_cadence_RPM > 0) ) {
 				// N. revs * 60/rpm * 1024
-				tmp = (crank_revolutions - dCumulativeCrankRev) * 61440 / tsdz_status.ui8_pedal_cadence_RPM;
+				tmp = (crank_revolutions - dCumulativeCrankRev) * 61440 / tsdz_data.ui8_pedal_cadence_RPM;
 				tmp += dLastCrankEventTime;
 				dLastCrankEventTime = tmp & 0xffff;
 			}
@@ -1103,7 +1066,7 @@ void cycling_bt_update(void) {
             cyclingMsg[i++] = ((dLastCrankEventTime>>8) & 0xff);
 
             // Accumulated Energy (KJ = Wh * 3600 / 1000)
-            tmp = (uint32_t)tsdz_status.ui16_battery_wh * 36L / 10L;
+            tmp = (uint32_t)tsdz_data.ui16_battery_wh * 36L / 10L;
             cyclingMsg[i++] = (tmp & 0xff);
             cyclingMsg[i++] = ((tmp>>8) & 0xff);
 

@@ -17,7 +17,7 @@
 
 static const char *TAG = "tsdz_nvs";
 
-static const uint8_t NVS_KEY_VAL = 6;
+static const uint8_t NVS_KEY_VAL = 7;
 
 // NVS Configuration Key values
 static const char* NVS_KEY       = "KEY";
@@ -90,18 +90,23 @@ void tsdz_nvs_read_cfg(void) {
 			case 3:
 			case 4:
 			case 5:
-				ESP_LOGI(TAG, "Upgrading NVS from version 3 or 4 or 5");
-				// upgrade cfg from version 3 or 4
+            case 6:
+				ESP_LOGI(TAG, "Upgrading NVS from version 3,4,5,6 to 7");
 				// get stored tsdz_cfg size
 				err = nvs_get_blob(my_handle, TSDZ_CFG_KEY, NULL, &len);
+				// read tsdz_cfg for previous version
 				err |= nvs_get_blob(my_handle, TSDZ_CFG_KEY, &tsdz_cfg, &len);
 				if(err != ESP_OK)
 					ESP_LOGE(TAG, "FATAL ERROR: nvs_get_blob - Unable to upgrade cfg: 0x%x", err);
+				// init new tsdz_cfg values
 				tsdz_cfg.ui8_hall_offset_adj = 0;
 				tsdz_cfg.ui8_phase_angle_adj = 0;
+                tsdz_cfg.ui8_flags &= 0x03; // torque smooth disabled
+                // store new tsdz_cfg value
 				err = nvs_set_blob(my_handle, TSDZ_CFG_KEY, &tsdz_cfg, sizeof(tsdz_cfg));
 				if(err != ESP_OK)
 					ESP_LOGE(TAG, "FATAL ERROR: nvs_set_blob - Unable to upgrade cfg: 0x%x", err);
+				// store new NVS KEY
 				err = nvs_set_u8(my_handle, NVS_KEY, NVS_KEY_VAL);
 				if(err != ESP_OK)
 					ESP_LOGE(TAG, "FATAL ERROR: nvs_set_u8 - Unable to upgrade cfg: 0x%x", err);

@@ -101,9 +101,9 @@ static int command_esp32_cfg(uint8_t* value, uint16_t len) {
 static int command_ota(uint8_t* data, uint16_t len, uint8_t cmdType) {
     uint8_t ret_val[2] = {cmdType,0};
 
-    if (tsdz_status.ui16_wheel_speed_x10 > 0 ||
-            tsdz_status.ui8_pedal_cadence_RPM > 0 ||
-            tsdz_debug.ui16_motor_speed_erps > 0) {
+    if (tsdz_data.ui16_wheel_speed_x10 > 0 ||
+            tsdz_data.ui8_pedal_cadence_RPM > 0 ||
+            tsdz_data.ui16_motor_speed_erps > 0) {
         ret_val[1] = 2;
     } else if (cmdType == CMD_ESP_OTA)
         ret_val[1] = ota_esp32_start(data, len);

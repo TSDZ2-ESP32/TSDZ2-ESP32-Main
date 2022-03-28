@@ -28,7 +28,7 @@
 // The bits 0-5 contain the motors error code (0 to 31)
 // Bit 6 contains the brake state (0:off, 1:on)
 // Bits 7-8 contain the communication status with LCD and Controller (0:ok, 1:fail)
-#define ERROR_MOTOR_MASK                          0x1f
+#define CONTROLLER_ERROR_MASK                     0x0f
 #define NO_ERROR                                  0
 #define ERROR_MOTOR_BLOCKED                       1
 #define ERROR_TORQUE_SENSOR                       2

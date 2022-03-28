@@ -56,7 +56,7 @@ void tsdz_ds18b20_read(void) {
     float t;
     DS18B20_ERROR error = ds18b20_read_temp(device, &t);
     if (error == DS18B20_OK)
-        tsdz_status.i16_motor_temperaturex10 = (short)(t*10);
+        tsdz_data.i16_motor_temperaturex10 = (short)(t*10);
     else
         ESP_LOGE(TAG,"tsdz_read_temp: %d", error);
 }

@@ -65,50 +65,48 @@ typedef struct _tsdz_cfg {
     volatile uint8_t ui8_torque_assist_level[4];
     volatile uint8_t ui8_eMTB_assist_sensitivity[4];
     volatile uint8_t ui8_walk_assist_level[4];
-    volatile uint8_t ui8_flags; // bit 0: Torque offset fix en/dis, bit 1: field weakening en/dis
+    volatile uint8_t ui8_flags; // bit 0: Torque offset fix en/dis, bit 1: field weakening en/dis, bit 2: torque smooth en/dis
     volatile uint16_t ui16_torque_offset_value;
     volatile uint8_t ui8_hall_ref_angles[6];
     volatile uint8_t ui8_hall_offsets[6];
+    volatile uint8_t ui8_torque_smooth_min;
+    volatile uint8_t ui8_torque_smooth_max;
 } struct_tsdz_cfg;
 
 #pragma pack(1)
-typedef struct _tsdz_status {
-    volatile uint8_t ui8_riding_mode; // bit 7 Street Mode enabled flag
-    volatile uint8_t ui8_assist_level;
-    volatile uint16_t ui16_wheel_speed_x10;
-    volatile uint8_t ui8_pedal_cadence_RPM;
-    volatile int16_t i16_motor_temperaturex10;
-    volatile uint16_t ui16_pedal_power_x10;
-    volatile uint16_t ui16_battery_voltage_x1000;
-    volatile uint8_t ui8_battery_current_x10;
-    volatile uint8_t ui8_system_state;
-    volatile uint16_t ui16_battery_wh;
-    volatile uint8_t ui8_rxc_errors;
-    volatile uint8_t ui8_rxl_errors;
-    volatile uint8_t ui8_status3;
-    volatile uint8_t ui8_status4;
-    volatile uint8_t ui8_status5;
-} struct_tsdz_status;
-
-#pragma pack(1)
-typedef struct _tsdz_debug {
-    volatile uint8_t ui8_adc_throttle;
-    volatile uint8_t ui8_throttle;
-    volatile uint16_t ui16_adc_pedal_torque_sensor;
-    volatile uint8_t ui8_duty_cycle;
-    volatile uint16_t ui16_motor_speed_erps;
-    volatile uint8_t ui8_foc_angle;
-    volatile uint16_t ui16_pedal_torque_x100;
-    volatile uint8_t ui8_fw_hall_cnt_offset;
-    volatile int16_t i16_pcb_temperaturex10;
-    volatile uint8_t ui8_debugFlags;
-    volatile uint8_t ui8_debug1;
-    volatile uint8_t ui8_debug2;
-    volatile uint8_t ui8_debug3;
-    volatile uint8_t ui8_debug4;
-    volatile uint8_t ui8_debug5;
-    volatile uint8_t ui8_debug6;
-} struct_tsdz_debug;
+typedef struct _tsdz_data {
+    volatile uint8_t ui8_riding_mode;               // 0 - bit 7 Street Mode enabled flag
+    volatile uint8_t ui8_assist_level;              // 1
+    volatile uint8_t ui8_system_state;              // 2
+    volatile uint16_t ui16_wheel_speed_x10;         // 3
+    volatile uint8_t ui8_pedal_cadence_RPM;         // 5
+    volatile uint16_t ui16_pedal_torque_x100;       // 6
+    volatile int16_t i16_motor_temperaturex10;      // 8
+    volatile int16_t i16_pcb_temperaturex10;        // 10
+    volatile uint16_t ui16_battery_voltage_x1000;   // 12
+    volatile uint8_t ui8_battery_current_x10;       // 14
+    volatile uint16_t ui16_battery_wh;              // 15
+    volatile uint8_t ui8_adc_throttle;              // 17
+    volatile uint8_t ui8_throttle;                  // 18
+    volatile uint16_t ui16_adc_pedal_torque_sensor; // 19
+    volatile uint8_t ui8_duty_cycle;                // 21
+    volatile uint16_t ui16_motor_speed_erps;        // 22
+    volatile uint8_t ui8_foc_angle;                 // 24
+    volatile uint8_t ui8_fw_hall_cnt_offset;        // 25
+    volatile uint8_t ui8_TorqueSmoothPct;           // 26
+    volatile uint8_t ui8_TorqueAVG;                 // 27
+    volatile uint8_t ui8_TorqueMin;                 // 28
+    volatile uint8_t ui8_TorqueMax;                 // 29
+    volatile uint8_t ui8_rxc_errors;                // 30
+    volatile uint8_t ui8_rxl_errors;                // 31
+    volatile uint8_t ui8_debugFlags;                // 32
+    volatile uint8_t ui8_debug1;                    // 33
+    volatile uint8_t ui8_debug2;                    // 34
+    volatile uint8_t ui8_debug3;                    // 35
+    volatile uint8_t ui8_debug4;                    // 36
+    volatile uint8_t ui8_debug5;                    // 37
+    volatile uint8_t ui8_debug6;                    // 38
+} struct_tsdz_data;
 
 #pragma pack(1)
 typedef struct _tsdz_hall {
@@ -126,8 +124,7 @@ extern uint8_t bike_locked;
 extern const uint32_t bt_passkey;
 extern struct_esp32_cfg esp32_cfg;
 extern struct_tsdz_cfg tsdz_cfg;
-extern struct_tsdz_status tsdz_status;
-extern struct_tsdz_debug tsdz_debug;
+extern struct_tsdz_data tsdz_data;
 
 // Hall Calibration data message
 extern uint8_t hall_calib_data_valid;
