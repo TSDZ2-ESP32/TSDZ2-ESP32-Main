@@ -1,0 +1,9 @@
+{
+    "recommendations": [
+        "espressif.esp-idf-extension",
+        "yzhang.markdown-all-in-one",
+        "ms-vscode.cpptools",
+        "vscode-icons-team.vscode-icons",
+        "ms-vscode.cmake-tools"
+    ]
+}

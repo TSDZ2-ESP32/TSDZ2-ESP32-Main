@@ -11,13 +11,11 @@ Optimizations in menuconfig
     - Bootloader optimization Level to Performance
     Bootloader config -> Bootloader optimization Level -> Optimize for Performance (-O2)
 
+    - Bootloader skip image validation
+	Bootloader config -> Skip image validation from power on reset
+
 	- Heap corruption detection Basic
 	Component config > Heap memory debugging -> Heap corruption detection -> Basic
-
-Optimization in esp-idf source
-	Edit the file %IDF_PATH%\components\bootloader_support\src\bootloader_utility.c
-	search the function try_load_partition( ... ) and change the call bootloader_load_image() to bootloader_load_image_no_verify()
-	
 	
 + Power consumption optimization +
 
