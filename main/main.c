@@ -55,7 +55,7 @@ void app_main(void)
     // set log level, bike_locked and street mode on startup according to NVS configured parameters
     setLogLevel();
     bike_locked = esp32_cfg.lock_enabled;
-    if (tsdz_cfg.ui8_flags & 0x05)
+    if (tsdz_cfg.ui8_flags & 0x08)
         ui8_app_street_mode = STREET_MODE_FORCE_ON;
 
     // initialize the UART
