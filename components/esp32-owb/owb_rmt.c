@@ -61,26 +61,34 @@ sample code bearing this copyright.
 #include "driver/rmt.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "soc/gpio_periph.h"    // for GPIO_PIN_MUX_REG
 
 #undef OW_DEBUG
 
 
 // bus reset: duration of low phase [us]
 #define OW_DURATION_RESET 480
+
 // overall slot duration
 #define OW_DURATION_SLOT 75
+
 // write 1 slot and read slot durations [us]
-#define OW_DURATION_1_LOW    2
+#define OW_DURATION_1_LOW    6
 #define OW_DURATION_1_HIGH (OW_DURATION_SLOT - OW_DURATION_1_LOW)
+
 // write 0 slot durations [us]
 #define OW_DURATION_0_LOW   65
 #define OW_DURATION_0_HIGH (OW_DURATION_SLOT - OW_DURATION_0_LOW)
+
 // sample time for read slot
 #define OW_DURATION_SAMPLE  (15-2)
+
 // RX idle threshold
 // needs to be larger than any duration occurring during write slots
 #define OW_DURATION_RX_IDLE (OW_DURATION_SLOT + 2)
 
+// maximum number of bits that can be read or written per slot
+#define MAX_BITS_PER_SLOT (8)
 
 static const char * TAG = "owb_rmt";
 
@@ -89,10 +97,10 @@ static const char * TAG = "owb_rmt";
 // flush any pending/spurious traces from the RX channel
 static void onewire_flush_rmt_rx_buf(const OneWireBus * bus)
 {
-    void *p;
-    size_t s;
+    void * p = NULL;
+    size_t s = 0;
 
-    owb_rmt_driver_info *i = info_of_driver(bus);
+    owb_rmt_driver_info * i = info_of_driver(bus);
 
     while ((p = xRingbufferReceive(i->rb, &s, 0)))
     {
@@ -101,29 +109,29 @@ static void onewire_flush_rmt_rx_buf(const OneWireBus * bus)
     }
 }
 
-static owb_status _reset(const OneWireBus *bus, bool *is_present)
+static owb_status _reset(const OneWireBus * bus, bool * is_present)
 {
-    rmt_item32_t tx_items[1];
+    rmt_item32_t tx_items[1] = {0};
     bool _is_present = false;
     int res = OWB_STATUS_OK;
 
-    owb_rmt_driver_info *i = info_of_driver(bus);
+    owb_rmt_driver_info * i = info_of_driver(bus);
 
     tx_items[0].duration0 = OW_DURATION_RESET;
     tx_items[0].level0 = 0;
     tx_items[0].duration1 = 0;
     tx_items[0].level1 = 1;
 
-    uint16_t old_rx_thresh;
+    uint16_t old_rx_thresh = 0;
     rmt_get_rx_idle_thresh(i->rx_channel, &old_rx_thresh);
-    rmt_set_rx_idle_thresh(i->rx_channel, OW_DURATION_RESET+60);
+    rmt_set_rx_idle_thresh(i->rx_channel, OW_DURATION_RESET + 60);
 
     onewire_flush_rmt_rx_buf(bus);
     rmt_rx_start(i->rx_channel, true);
     if (rmt_write_items(i->tx_channel, tx_items, 1, true) == ESP_OK)
     {
-        size_t rx_size;
-        rmt_item32_t* rx_items = (rmt_item32_t *)xRingbufferReceive(i->rb, &rx_size, 100 / portTICK_PERIOD_MS);
+        size_t rx_size = 0;
+        rmt_item32_t * rx_items = (rmt_item32_t *)xRingbufferReceive(i->rb, &rx_size, 100 / portTICK_PERIOD_MS);
 
         if (rx_items)
         {
@@ -180,7 +188,7 @@ static owb_status _reset(const OneWireBus *bus, bool *is_present)
 
 static rmt_item32_t _encode_write_slot(uint8_t val)
 {
-    rmt_item32_t item;
+    rmt_item32_t item = {0};
 
     item.level0 = 0;
     item.level1 = 1;
@@ -203,10 +211,10 @@ static rmt_item32_t _encode_write_slot(uint8_t val)
 /** NOTE: The data is shifted out of the low bits, eg. it is written in the order of lsb to msb */
 static owb_status _write_bits(const OneWireBus * bus, uint8_t out, int number_of_bits_to_write)
 {
-    rmt_item32_t tx_items[number_of_bits_to_write + 1];
-    owb_rmt_driver_info *info = info_of_driver(bus);
+    rmt_item32_t tx_items[MAX_BITS_PER_SLOT + 1] = {0};
+    owb_rmt_driver_info * info = info_of_driver(bus);
 
-    if (number_of_bits_to_write > 8)
+    if (number_of_bits_to_write > MAX_BITS_PER_SLOT)
     {
         return OWB_STATUS_TOO_MANY_BITS;
     }
@@ -222,7 +230,7 @@ static owb_status _write_bits(const OneWireBus * bus, uint8_t out, int number_of
     tx_items[number_of_bits_to_write].level0 = 1;
     tx_items[number_of_bits_to_write].duration0 = 0;
 
-    owb_status status;
+    owb_status status = OWB_STATUS_NOT_SET;
 
     if (rmt_write_items(info->tx_channel, tx_items, number_of_bits_to_write+1, true) == ESP_OK)
     {
@@ -239,7 +247,7 @@ static owb_status _write_bits(const OneWireBus * bus, uint8_t out, int number_of
 
 static rmt_item32_t _encode_read_slot(void)
 {
-    rmt_item32_t item;
+    rmt_item32_t item = {0};
 
     // construct pattern for a single read time slot
     item.level0    = 0;
@@ -252,13 +260,13 @@ static rmt_item32_t _encode_read_slot(void)
 /** NOTE: Data is read into the high bits, eg. each bit read is shifted down before the next bit is read */
 static owb_status _read_bits(const OneWireBus * bus, uint8_t *in, int number_of_bits_to_read)
 {
-    rmt_item32_t tx_items[number_of_bits_to_read + 1];
+    rmt_item32_t tx_items[MAX_BITS_PER_SLOT + 1] = {0};
     uint8_t read_data = 0;
     int res = OWB_STATUS_OK;
 
     owb_rmt_driver_info *info = info_of_driver(bus);
 
-    if (number_of_bits_to_read > 8)
+    if (number_of_bits_to_read > MAX_BITS_PER_SLOT)
     {
         ESP_LOGE(TAG, "_read_bits() OWB_STATUS_TOO_MANY_BITS");
         return OWB_STATUS_TOO_MANY_BITS;
@@ -278,8 +286,8 @@ static owb_status _read_bits(const OneWireBus * bus, uint8_t *in, int number_of_
     rmt_rx_start(info->rx_channel, true);
     if (rmt_write_items(info->tx_channel, tx_items, number_of_bits_to_read+1, true) == ESP_OK)
     {
-        size_t rx_size;
-        rmt_item32_t* rx_items = (rmt_item32_t *)xRingbufferReceive(info->rb, &rx_size, portMAX_DELAY);
+        size_t rx_size = 0;
+        rmt_item32_t *rx_items = (rmt_item32_t *)xRingbufferReceive(info->rb, &rx_size, 100 / portTICK_PERIOD_MS);
 
         if (rx_items)
         {
@@ -350,13 +358,13 @@ static struct owb_driver rmt_function_table =
     .read_bits = _read_bits
 };
 
-static owb_status _init(owb_rmt_driver_info *info, uint8_t gpio_num,
+static owb_status _init(owb_rmt_driver_info *info, gpio_num_t gpio_num,
                         rmt_channel_t tx_channel, rmt_channel_t rx_channel)
 {
     owb_status status = OWB_STATUS_HW_ERROR;
 
     // Ensure the RMT peripheral is not already running
-    // Note: if using RMT elsewhere, don't call this here, call it at the start of your prgoram instead.
+    // Note: if using RMT elsewhere, don't call this here, call it at the start of your program instead.
     //periph_module_disable(PERIPH_RMT_MODULE);
     //periph_module_enable(PERIPH_RMT_MODULE);
 
@@ -370,7 +378,7 @@ static owb_status _init(owb_rmt_driver_info *info, uint8_t gpio_num,
     ESP_LOGI(TAG, "RMT RX channel: %d", info->rx_channel);
 #endif
 
-    rmt_config_t rmt_tx;
+    rmt_config_t rmt_tx = {0};
     rmt_tx.channel = info->tx_channel;
     rmt_tx.gpio_num = gpio_num;
     rmt_tx.mem_block_num = 1;
@@ -384,7 +392,8 @@ static owb_status _init(owb_rmt_driver_info *info, uint8_t gpio_num,
     {
         if (rmt_driver_install(rmt_tx.channel, 0, ESP_INTR_FLAG_LOWMED | ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_SHARED) == ESP_OK)
         {
-            rmt_config_t rmt_rx;
+            rmt_set_source_clk(rmt_tx.channel, RMT_BASECLK_APB);  // only APB is supported by IDF 4.2
+            rmt_config_t rmt_rx = {0};
             rmt_rx.channel = info->rx_channel;
             rmt_rx.gpio_num = gpio_num;
             rmt_rx.clk_div = 80;
@@ -397,6 +406,7 @@ static owb_status _init(owb_rmt_driver_info *info, uint8_t gpio_num,
             {
                 if (rmt_driver_install(rmt_rx.channel, 512, ESP_INTR_FLAG_LOWMED | ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_SHARED) == ESP_OK)
                 {
+                    rmt_set_source_clk(rmt_rx.channel, RMT_BASECLK_APB);  // only APB is supported by IDF 4.2
                     rmt_get_ringbuf_handle(info->rx_channel, &info->rb);
                     status = OWB_STATUS_OK;
                 }
@@ -435,8 +445,8 @@ static owb_status _init(owb_rmt_driver_info *info, uint8_t gpio_num,
     // attach RMT channels to new gpio pin
     // ATTENTION: set pin for rx first since gpio_output_disable() will
     //            remove rmt output signal in matrix!
-    rmt_set_pin(info->rx_channel, RMT_MODE_RX, gpio_num);
-    rmt_set_pin(info->tx_channel, RMT_MODE_TX, gpio_num);
+    rmt_set_gpio(info->rx_channel, RMT_MODE_RX, gpio_num, 0);
+    rmt_set_gpio(info->tx_channel, RMT_MODE_TX, gpio_num, 0);
 
     // force pin direction to input to enable path to RX channel
     PIN_INPUT_ENABLE(GPIO_PIN_MUX_REG[gpio_num]);
@@ -447,17 +457,19 @@ static owb_status _init(owb_rmt_driver_info *info, uint8_t gpio_num,
     return status;
 }
 
-OneWireBus * owb_rmt_initialize(owb_rmt_driver_info *info, uint8_t gpio_num,
+OneWireBus * owb_rmt_initialize(owb_rmt_driver_info * info, gpio_num_t gpio_num,
                                 rmt_channel_t tx_channel, rmt_channel_t rx_channel)
 {
     ESP_LOGD(TAG, "%s: gpio_num: %d, tx_channel: %d, rx_channel: %d",
              __func__, gpio_num, tx_channel, rx_channel);
 
     owb_status status = _init(info, gpio_num, tx_channel, rx_channel);
-    if(status != OWB_STATUS_OK)
+    if (status != OWB_STATUS_OK)
     {
         ESP_LOGE(TAG, "_init() failed with status %d", status);
     }
+
+    info->bus.strong_pullup_gpio = GPIO_NUM_NC;
 
     return &(info->bus);
 }

@@ -32,10 +32,6 @@
 #define NO_ERROR                                  0
 #define ERROR_MOTOR_BLOCKED                       1
 #define ERROR_TORQUE_SENSOR                       2
-#define ERROR_BRAKE_APPLIED_DURING_POWER_ON       3  // currently not used
-#define ERROR_THROTTLE_APPLIED_DURING_POWER_ON    4  // currently not used
-#define ERROR_NO_SPEED_SENSOR_DETECTED            5  // currently not used
-#define ERROR_LOW_CONTROLLER_VOLTAGE              6  // currently not used
 #define ERROR_BATTERY_OVERCURRENT                 7
 #define ERROR_OVERVOLTAGE                         8
 #define ERROR_TEMPERATURE_LIMIT                   9
@@ -43,7 +39,8 @@
 #define ERROR_COMMUNICATION_MASK                  0xc0 // Mask bits for Communication errors
 #define ERROR_CONTROLLER_COMMUNICATION            0x80 // Bit 7 set if controller communication is missing
 #define ERROR_LCD_COMMUNICATION                   0x40 // Bit 6 set if lcd communication is missing
-#define BRAKE_STATE_BIT                           0x20
+#define BRAKE_STATE_BIT                           0x20 // Bit 5 set if brake is On
+#define ERROR_CONTROLLER_UART_BIT                 0x10 // Bit 4 set if the Controller has reception problems
 
 // OEM Display error codes
 // N.B.: E01, E05, E07, E09 are not available on XH18 display

@@ -23,6 +23,14 @@
  * SOFTWARE.
  */
 
+/**
+ * @file
+ * @brief Interface definitions for ESP32 RMT driver used to communicate with devices
+ *        on the One Wire Bus.
+ *
+ * This is the recommended driver.
+ */
+
 #pragma once
 #ifndef OWB_RMT_H
 #define OWB_RMT_H
@@ -36,6 +44,9 @@
 extern "C" {
 #endif
 
+/**
+ * @brief RMT driver information
+ */
 typedef struct
 {
   int tx_channel;     ///< RMT channel to use for TX
@@ -47,9 +58,14 @@ typedef struct
 
 /**
  * @brief Initialise the RMT driver.
- * @return OneWireBus*, pass this into the other OneWireBus public API functions
+ * @param[in] info Pointer to an uninitialized owb_rmt_driver_info structure.
+ *                 Note: the structure must remain in scope for the lifetime of this component.
+ * @param[in] gpio_num The GPIO number to use as the One Wire bus data line.
+ * @param[in] tx_channel The RMT channel to use for transmitting data to bus devices.
+ * @param[in] rx_channel the RMT channel to use for receiving data from bus devices.
+ * @return OneWireBus *, pass this into the other OneWireBus public API functions
  */
-OneWireBus* owb_rmt_initialize(owb_rmt_driver_info *info, uint8_t gpio_num,
+OneWireBus* owb_rmt_initialize(owb_rmt_driver_info * info, gpio_num_t gpio_num,
                                rmt_channel_t tx_channel, rmt_channel_t rx_channel);
 
 #ifdef __cplusplus

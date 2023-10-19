@@ -38,6 +38,8 @@
 #include "esp_log.h"
 #include "sdkconfig.h"
 #include "driver/gpio.h"
+#include "rom/ets_sys.h"    // for ets_delay_us()
+#include "rom/gpio.h"       // for gpio_pad_select_gpio()
 
 #include "owb.h"
 #include "owb_gpio.h"
@@ -63,7 +65,7 @@ struct _OneWireBus_Timing
 {
     uint32_t A, B, C, D, E, F, G, H, I, J;
 };
-//// @endcond
+/// @endcond
 
 // 1-Wire timing delays (standard) in microseconds.
 // Labels and values are from https://www.maximintegrated.com/en/app-notes/index.mvp/id/126
@@ -85,7 +87,9 @@ static void _us_delay(uint32_t time_us)
     ets_delay_us(time_us);
 }
 
+/// @cond ignore
 #define info_from_bus(owb) container_of(owb, owb_gpio_driver_info, bus)
+/// @endcond
 
 /**
  * @brief Generate a 1-Wire reset (initialization).
@@ -259,13 +263,14 @@ static const struct owb_driver gpio_function_table =
     .read_bits = _read_bits
 };
 
-OneWireBus* owb_gpio_initialize(owb_gpio_driver_info *driver_info, int gpio)
+OneWireBus* owb_gpio_initialize(owb_gpio_driver_info * driver_info, int gpio)
 {
-    ESP_LOGI(TAG, "%s(): gpio %d\n", __func__, gpio);
+    ESP_LOGD(TAG, "%s(): gpio %d\n", __func__, gpio);
 
     driver_info->gpio = gpio;
     driver_info->bus.driver = &gpio_function_table;
     driver_info->bus.timing = &_StandardTiming;
+    driver_info->bus.strong_pullup_gpio = GPIO_NUM_NC;
 
     // platform specific:
     gpio_pad_select_gpio(driver_info->gpio);

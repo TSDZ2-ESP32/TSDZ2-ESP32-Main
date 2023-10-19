@@ -41,6 +41,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
+#include "esp_timer.h"      // for esp_timer_get_time()
 #include "esp_system.h"
 #include "esp_log.h"
 
@@ -51,12 +52,12 @@ static const char * TAG = "ds18b20";
 static const int T_CONV = 750;   // maximum conversion time at 12-bit resolution in milliseconds
 
 // Function commands
-#define DS18B20_FUNCTION_TEMP_CONVERT       0x44
-#define DS18B20_FUNCTION_SCRATCHPAD_WRITE   0x4E
-#define DS18B20_FUNCTION_SCRATCHPAD_READ    0xBE
-#define DS18B20_FUNCTION_SCRATCHPAD_COPY    0x48
-#define DS18B20_FUNCTION_EEPROM_RECALL      0xB8
-#define DS18B20_FUNCTION_POWER_SUPPLY_READ  0xB4
+#define DS18B20_FUNCTION_TEMP_CONVERT       0x44  ///< Initiate a single temperature conversion
+#define DS18B20_FUNCTION_SCRATCHPAD_WRITE   0x4E  ///< Write 3 bytes of data to the device scratchpad at positions 2, 3 and 4
+#define DS18B20_FUNCTION_SCRATCHPAD_READ    0xBE  ///< Read 9 bytes of data (including CRC) from the device scratchpad
+#define DS18B20_FUNCTION_SCRATCHPAD_COPY    0x48  ///< Copy the contents of the scratchpad to the device EEPROM
+#define DS18B20_FUNCTION_EEPROM_RECALL      0xB8  ///< Restore alarm trigger values and configuration data from EEPROM to the scratchpad
+#define DS18B20_FUNCTION_POWER_SUPPLY_READ  0xB4  ///< Determine if a device is using parasitic power
 
 /// @cond ignore
 typedef struct
@@ -67,7 +68,7 @@ typedef struct
     uint8_t configuration;
     uint8_t reserved[3];
     uint8_t crc;
-} Scratchpad;
+} __attribute__((packed)) Scratchpad;
 /// @endcond ignore
 
 static void _init(DS18B20_Info * ds18b20_info, const OneWireBus * bus)
@@ -144,9 +145,9 @@ static bool _check_resolution(DS18B20_RESOLUTION resolution)
     return (resolution >= DS18B20_RESOLUTION_9_BIT) && (resolution <= DS18B20_RESOLUTION_12_BIT);
 }
 
-static float _wait_for_conversion(DS18B20_RESOLUTION resolution)
+static float _wait_for_duration(DS18B20_RESOLUTION resolution)
 {
-    float elapsed_time = 0.0f;
+    int64_t start_time = esp_timer_get_time();
     if (_check_resolution(resolution))
     {
         int divisor = 1 << (DS18B20_RESOLUTION_12_BIT - resolution);
@@ -157,9 +158,43 @@ static float _wait_for_conversion(DS18B20_RESOLUTION resolution)
 
         // wait at least this maximum conversion time
         vTaskDelay(ticks);
+    }
+    int64_t end_time = esp_timer_get_time();
+    return (float)(end_time - start_time) / 1000000.0f;
+}
 
-        // TODO: measure elapsed time more accurately
-        elapsed_time = ticks * portTICK_PERIOD_MS;
+static float _wait_for_device_signal(const DS18B20_Info * ds18b20_info)
+{
+    float elapsed_time = 0.0f;
+    if (_check_resolution(ds18b20_info->resolution))
+    {
+        int divisor = 1 << (DS18B20_RESOLUTION_12_BIT - ds18b20_info->resolution);
+
+        // allow for 10% overtime
+        float max_conversion_time = (float)T_CONV / (float)divisor * 1.1;
+        int max_conversion_ticks = ceil(max_conversion_time / portTICK_PERIOD_MS);
+        ESP_LOGD(TAG, "wait for conversion: max %.0f ms, %d ticks", max_conversion_time, max_conversion_ticks);
+
+        // wait for conversion to complete - all devices will pull bus low once complete
+        TickType_t start_ticks = xTaskGetTickCount();
+        TickType_t duration_ticks = 0;
+        uint8_t status = 0;
+        do
+        {
+            vTaskDelay(1);
+            owb_read_bit(ds18b20_info->bus, &status);
+            duration_ticks = xTaskGetTickCount() - start_ticks;
+        } while (status == 0 && duration_ticks < max_conversion_ticks);
+
+        elapsed_time = duration_ticks * portTICK_PERIOD_MS;
+        if (duration_ticks >= max_conversion_ticks)
+        {
+            ESP_LOGW(TAG, "conversion timed out");
+        }
+        else
+        {
+            ESP_LOGD(TAG, "conversion took at most %.0f ms", elapsed_time);
+        }
     }
     return elapsed_time;
 }
@@ -187,18 +222,72 @@ static size_t _min(size_t x, size_t y)
     return x > y ? y : x;
 }
 
-static Scratchpad _read_scratchpad(const DS18B20_Info * ds18b20_info, size_t count)
+static DS18B20_ERROR _read_scratchpad(const DS18B20_Info * ds18b20_info, Scratchpad * scratchpad, size_t count)
 {
-    count = _min(sizeof(Scratchpad), count);   // avoid overflow
-    Scratchpad scratchpad = {0};
-    ESP_LOGD(TAG, "scratchpad read %d bytes: ", count);
+    // If CRC is enabled, regardless of count, read the entire scratchpad and verify the CRC,
+    // otherwise read up to the scratchpad size, or count, whichever is smaller.
+
+    if (!scratchpad) {
+        return DS18B20_ERROR_NULL;
+    }
+
+    DS18B20_ERROR err = DS18B20_ERROR_UNKNOWN;
+
+    if (ds18b20_info->use_crc)
+    {
+        count = sizeof(Scratchpad);
+    }
+    count = _min(sizeof(Scratchpad), count);   // avoid reading past end of scratchpad
+
+    ESP_LOGD(TAG, "scratchpad read: CRC %d, count %d", ds18b20_info->use_crc, count);
     if (_address_device(ds18b20_info))
     {
-        owb_write_byte(ds18b20_info->bus, DS18B20_FUNCTION_SCRATCHPAD_READ);
-        owb_read_bytes(ds18b20_info->bus, (uint8_t *)&scratchpad, count);
-        //esp_log_buffer_hex(TAG, &scratchpad, count);
+        // read scratchpad
+        if (owb_write_byte(ds18b20_info->bus, DS18B20_FUNCTION_SCRATCHPAD_READ) == OWB_STATUS_OK)
+        {
+            if (owb_read_bytes(ds18b20_info->bus, (uint8_t *)scratchpad, count) == OWB_STATUS_OK)
+            {
+                ESP_LOG_BUFFER_HEX_LEVEL(TAG, scratchpad, count, ESP_LOG_DEBUG);
+
+                err = DS18B20_OK;
+                if (!ds18b20_info->use_crc)
+                {
+                    // Without CRC, or partial read:
+                    ESP_LOGD(TAG, "No CRC check");
+                    bool is_present = false;
+                    owb_reset(ds18b20_info->bus, &is_present);  // terminate early
+                }
+                else
+                {
+                    // With CRC:
+                    if (owb_crc8_bytes(0, (uint8_t *)scratchpad, sizeof(*scratchpad)) != 0)
+                    {
+                        ESP_LOGE(TAG, "CRC failed");
+                        err = DS18B20_ERROR_CRC;
+                    }
+                    else
+                    {
+                        ESP_LOGD(TAG, "CRC ok");
+                    }
+                }
+            }
+            else
+            {
+                ESP_LOGE(TAG, "owb_read_bytes failed");
+                err = DS18B20_ERROR_OWB;
+            }
+        }
+        else
+        {
+            ESP_LOGE(TAG, "owb_write_byte failed");
+            err = DS18B20_ERROR_OWB;
+        }
     }
-    return scratchpad;
+    else
+    {
+        err = DS18B20_ERROR_DEVICE;
+    }
+    return err;
 }
 
 static bool _write_scratchpad(const DS18B20_Info * ds18b20_info, const Scratchpad * scratchpad, bool verify)
@@ -210,22 +299,30 @@ static bool _write_scratchpad(const DS18B20_Info * ds18b20_info, const Scratchpa
     {
         if (_address_device(ds18b20_info))
         {
+            ESP_LOGD(TAG, "scratchpad write 3 bytes:");
+            ESP_LOG_BUFFER_HEX_LEVEL(TAG, &scratchpad->trigger_high, 3, ESP_LOG_DEBUG);
             owb_write_byte(ds18b20_info->bus, DS18B20_FUNCTION_SCRATCHPAD_WRITE);
             owb_write_bytes(ds18b20_info->bus, (uint8_t *)&scratchpad->trigger_high, 3);
-            ESP_LOGD(TAG, "scratchpad write 3 bytes:");
-            //esp_log_buffer_hex(TAG, &scratchpad->trigger_high, 3);
             result = true;
 
             if (verify)
             {
-                Scratchpad read = _read_scratchpad(ds18b20_info, offsetof(Scratchpad, configuration) + 1);
-                if (memcmp(&scratchpad->trigger_high, &read.trigger_high, 3) != 0)
+                Scratchpad read = {0};
+                if (_read_scratchpad(ds18b20_info, &read, offsetof(Scratchpad, configuration) + 1) == DS18B20_OK)
                 {
-                    ESP_LOGE(TAG, "scratchpad verify failed: "
-                            "wrote {0x%02x, 0x%02x, 0x%02x}, "
-                            "read {0x%02x, 0x%02x, 0x%02x}",
-                            scratchpad->trigger_high, scratchpad->trigger_low, scratchpad->configuration,
-                            read.trigger_high, read.trigger_low, read.configuration);
+                    if (memcmp(&scratchpad->trigger_high, &read.trigger_high, 3) != 0)
+                    {
+                        ESP_LOGE(TAG, "scratchpad verify failed: "
+                                 "wrote {0x%02x, 0x%02x, 0x%02x}, "
+                                 "read {0x%02x, 0x%02x, 0x%02x}",
+                                 scratchpad->trigger_high, scratchpad->trigger_low, scratchpad->configuration,
+                                 read.trigger_high, read.trigger_low, read.configuration);
+                        result = false;
+                    }
+                }
+                else
+                {
+                    ESP_LOGE(TAG, "read scratchpad failed");
                     result = false;
                 }
             }
@@ -313,7 +410,8 @@ bool ds18b20_set_resolution(DS18B20_Info * ds18b20_info, DS18B20_RESOLUTION reso
         if (_check_resolution(ds18b20_info->resolution))
         {
             // read scratchpad up to and including configuration register
-            Scratchpad scratchpad = _read_scratchpad(ds18b20_info,
+            Scratchpad scratchpad = {0};
+            _read_scratchpad(ds18b20_info, &scratchpad,
                     offsetof(Scratchpad, configuration) - offsetof(Scratchpad, temperature) + 1);
 
             // modify configuration register to set resolution
@@ -349,7 +447,8 @@ DS18B20_RESOLUTION ds18b20_read_resolution(DS18B20_Info * ds18b20_info)
     if (_is_init(ds18b20_info))
     {
         // read scratchpad up to and including configuration register
-        Scratchpad scratchpad = _read_scratchpad(ds18b20_info,
+        Scratchpad scratchpad = {0};
+        _read_scratchpad(ds18b20_info, &scratchpad,
                 offsetof(Scratchpad, configuration) - offsetof(Scratchpad, temperature) + 1);
 
         resolution = ((scratchpad.configuration >> 5) & 0x03) + DS18B20_RESOLUTION_9_BIT;
@@ -388,10 +487,18 @@ bool ds18b20_convert(const DS18B20_Info * ds18b20_info)
 
 void ds18b20_convert_all(const OneWireBus * bus)
 {
-    bool is_present = false;
-    owb_reset(bus, &is_present);
-    owb_write_byte(bus, OWB_ROM_SKIP);
-    owb_write_byte(bus, DS18B20_FUNCTION_TEMP_CONVERT);
+    if (bus)
+    {
+        bool is_present = false;
+        owb_reset(bus, &is_present);
+        owb_write_byte(bus, OWB_ROM_SKIP);
+        owb_write_byte(bus, DS18B20_FUNCTION_TEMP_CONVERT);
+        owb_set_strong_pullup(bus, true);
+    }
+    else
+    {
+        ESP_LOGE(TAG, "bus is NULL");
+    }
 }
 
 float ds18b20_wait_for_conversion(const DS18B20_Info * ds18b20_info)
@@ -399,7 +506,17 @@ float ds18b20_wait_for_conversion(const DS18B20_Info * ds18b20_info)
     float elapsed_time = 0.0f;
     if (_is_init(ds18b20_info))
     {
-        elapsed_time = _wait_for_conversion(ds18b20_info->resolution);
+        if (ds18b20_info->bus->use_parasitic_power)
+        {
+            // in parasitic mode, devices cannot signal when they are complete,
+            // so use the datasheet values to wait for a duration.
+            elapsed_time = _wait_for_duration(ds18b20_info->resolution);
+        }
+        else
+        {
+            // wait for the device(s) to indicate the conversion is complete
+            elapsed_time = _wait_for_device_signal(ds18b20_info);
+        }
     }
     return elapsed_time;
 }
@@ -409,63 +526,28 @@ DS18B20_ERROR ds18b20_read_temp(const DS18B20_Info * ds18b20_info, float * value
     DS18B20_ERROR err = DS18B20_ERROR_UNKNOWN;
     if (_is_init(ds18b20_info))
     {
-        const OneWireBus * bus = ds18b20_info->bus;
-        if (_address_device(ds18b20_info))
+        uint8_t temp_LSB = 0x00;
+        uint8_t temp_MSB = 0x80;
+        Scratchpad scratchpad = {0};
+        if ((err = _read_scratchpad(ds18b20_info, &scratchpad, 2)) == DS18B20_OK)
         {
-            // read measurement
-            if (owb_write_byte(bus, DS18B20_FUNCTION_SCRATCHPAD_READ) == OWB_STATUS_OK)
-            {
-                err = DS18B20_OK;
-
-                uint8_t temp_LSB = 0;
-                uint8_t temp_MSB = 0;
-                if (!ds18b20_info->use_crc)
-                {
-                    // Without CRC:
-                    owb_read_byte(bus, &temp_LSB);
-                    owb_read_byte(bus, &temp_MSB);
-                    bool is_present = false;
-                    owb_reset(bus, &is_present);  // terminate early
-                }
-                else
-                {
-                    // with CRC:
-                    uint8_t buffer[9] = {0};
-                    owb_read_bytes(bus, buffer, 9);
-
-                    temp_LSB = buffer[0];
-                    temp_MSB = buffer[1];
-
-                    if (owb_crc8_bytes(0, buffer, 9) != 0)
-                    {
-                        ESP_LOGE(TAG, "CRC failed");
-                        temp_LSB = 0x00;
-                        temp_MSB = 0x80;
-                        err = DS18B20_ERROR_CRC;
-                    }
-                }
-
-                if (err == DS18B20_OK)
-                {
-                    float temp = _decode_temp(temp_LSB, temp_MSB, ds18b20_info->resolution);
-                    ESP_LOGD(TAG, "temp_LSB 0x%02x, temp_MSB 0x%02x, temp %f", temp_LSB, temp_MSB, temp);
-
-                    if (value)
-                    {
-                        *value = temp;
-                    }
-                }
-            }
-            else
-            {
-                ESP_LOGE(TAG, "owb_write_byte failed");
-                err = DS18B20_ERROR_OWB;
-            }
+            temp_LSB = scratchpad.temperature[0];
+            temp_MSB = scratchpad.temperature[1];
         }
-        else
+
+        // https://github.com/cpetrich/counterfeit_DS18B20#solution-to-the-85-c-problem
+        if (scratchpad.reserved[1] == 0x0c && temp_MSB == 0x05 && temp_LSB == 0x50)
         {
-            ESP_LOGE(TAG, "ds18b20 device not responding");
+            ESP_LOGE(TAG, "Read power-on value (85.0)");
             err = DS18B20_ERROR_DEVICE;
+        }
+
+        float temp = _decode_temp(temp_LSB, temp_MSB, ds18b20_info->resolution);
+        ESP_LOGD(TAG, "temp_LSB 0x%02x, temp_MSB 0x%02x, temp %f", temp_LSB, temp_MSB, temp);
+
+        if (value)
+        {
+            *value = temp;
         }
     }
     return err;
@@ -479,7 +561,8 @@ DS18B20_ERROR ds18b20_convert_and_read_temp(const DS18B20_Info * ds18b20_info, f
         if (ds18b20_convert(ds18b20_info))
         {
             // wait at least maximum conversion time
-            _wait_for_conversion(ds18b20_info->resolution);
+            ds18b20_wait_for_conversion(ds18b20_info);
+
             if (value)
             {
                 *value = 0.0f;
@@ -494,4 +577,39 @@ DS18B20_ERROR ds18b20_convert_and_read_temp(const DS18B20_Info * ds18b20_info, f
     return err;
 }
 
-
+DS18B20_ERROR ds18b20_check_for_parasite_power(const OneWireBus * bus, bool * present)
+{
+    DS18B20_ERROR err = DS18B20_ERROR_UNKNOWN;
+    ESP_LOGD(TAG, "ds18b20_check_for_parasite_power");
+    if (bus) {
+        bool reset_present;
+        if ((err = owb_reset(bus, &reset_present)) == DS18B20_OK)
+        {
+            ESP_LOGD(TAG, "owb_reset OK");
+            if ((err = owb_write_byte(bus, OWB_ROM_SKIP)) == DS18B20_OK)
+            {
+                ESP_LOGD(TAG, "owb_write_byte(ROM_SKIP) OK");
+                if ((err = owb_write_byte(bus, DS18B20_FUNCTION_POWER_SUPPLY_READ)) == DS18B20_OK)
+                {
+                    // Parasitic-powered devices will pull the bus low during read time slot
+                    ESP_LOGD(TAG, "owb_write_byte(POWER_SUPPLY_READ) OK");
+                    uint8_t value = 0;
+                    if ((err = owb_read_bit(bus, &value)) == DS18B20_OK)
+                    {
+                        ESP_LOGD(TAG, "owb_read_bit OK: 0x%02x", value);
+                        if (present)
+                        {
+                            *present = !(bool)(value & 0x01u);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else
+    {
+        ESP_LOGE(TAG, "bus is NULL");
+        err = DS18B20_ERROR_NULL;
+    }
+    return err;
+}

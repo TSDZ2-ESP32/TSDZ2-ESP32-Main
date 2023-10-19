@@ -21,8 +21,6 @@
 
 static const char *TAG = "tsdz_uart";
 
-char senBuf[256];
-
 static uint8_t lcd_recived_msg[LCD_OEM_MSG_BYTES];
 static uint8_t lcd_rx_counter = 0;
 static uint8_t lcd_state_machine = 0;
@@ -34,10 +32,10 @@ static uint8_t ct_state_machine = 0;
 static uint8_t lcd_send_msg[CT_OEM_MSG_BYTES];
 static uint8_t ct_send_msg[LCD_OS_MSG_BYTES];
 
-static TickType_t last_lcd_msg_tick = 0;
-static TickType_t last_ct_msg_tick = 0;
-static uint8_t rxc_errors_cnt = 0;
-static uint8_t rxl_errors_cnt = 0;
+static TickType_t last_read_lcd_tick = 0;
+static TickType_t last_read_ct_tick = 0;
+static TickType_t last_send_lcd_tick = pdMS_TO_TICKS(20);
+static TickType_t last_send_ct_tick = pdMS_TO_TICKS(40);
 
 bool lcdMessageReceived(void);
 bool ctMessageReceived(void);
@@ -103,57 +101,64 @@ void tsdz_uart_task(void) {
             stm8_ota_status = 0;
         }
     }
-    // Read messages coming from LCD
+	
+	TickType_t current_tick = xTaskGetTickCount();
+    
+	// Read messages coming from LCD and send to Controller
     if (lcdMessageReceived()) {
     	if (checkCRC(lcd_recived_msg, LCD_OEM_MSG_BYTES)) {
     		ESP_LOGD(TAG, "LCD Received: %s", bytesToHex(lcd_recived_msg,LCD_OEM_MSG_BYTES));
-	        last_lcd_msg_tick = xTaskGetTickCount();
-	        rxl_errors_cnt = 0;
 	        processLcdMessage(lcd_recived_msg);
+			// Send a message to the controller as soon as a valid message is received from the LCD
+            getControllerMessage(ct_send_msg);
+            uart_write_bytes(CT_UART, (char*)ct_send_msg, (size_t)LCD_OS_MSG_BYTES);
+	        last_read_lcd_tick = current_tick;
+			last_send_ct_tick = current_tick;
 		} else {
 			ESP_LOGW(TAG,"LCD-CRC-ERROR: %s", bytesToHex(lcd_recived_msg,LCD_OEM_MSG_BYTES));
-	        rxl_errors_cnt++;
 	        tsdz_data.ui8_rxl_errors++;
 		}
-
-        // if ((rxl_errors_cnt <= 2) && ((xTaskGetTickCount() - last_ct_msg_tick) < pdMS_TO_TICKS(500))) {
-		if (rxl_errors_cnt <= 2) {
-        	// Send message to LCD only if a controller message was received in the last 500ms
-            getLCDMessage(lcd_send_msg);
-            uart_write_bytes(LCD_UART, (char*)lcd_send_msg, (size_t)CT_OEM_MSG_BYTES);
-            //ESP_LOGI(TAG, "LCD Message Sent: %s", bytesToHex(lcd_send_msg,CT_OEM_MSG_BYTES));
-        }
     }
+	// Send a message to the Controller even if no valid messages are received from the LCD
+	if ((current_tick - last_send_ct_tick) > pdMS_TO_TICKS(100)) {
+		getControllerMessage(ct_send_msg);
+		uart_write_bytes(CT_UART, (char*)ct_send_msg, (size_t)LCD_OS_MSG_BYTES);
+		last_send_ct_tick = current_tick;
+		//ESP_LOGI(TAG, "Controller Message Sent: %s", bytesToHex(ct_send_msg,LCD_OS_MSG_BYTES));
+	}
 
-    // Read messages from Controller and send to LCD and controller
+    // Read messages from Controller and send to LCD
     if (ctMessageReceived()) {
         if (checkCRC16(ct_received_msg, CT_OS_MSG_BYTES)) {
             ESP_LOGD(TAG, "CT Received: %s", bytesToHex(ct_received_msg,CT_OS_MSG_BYTES));
-	        last_ct_msg_tick = xTaskGetTickCount();
-	        rxc_errors_cnt = 0;
             processControllerMessage(ct_received_msg);
+			// Send a message to the LCD as soon as a valid message is received from the Controller
+            getLCDMessage(lcd_send_msg);
+            uart_write_bytes(LCD_UART, (char*)lcd_send_msg, (size_t)CT_OEM_MSG_BYTES);
+	        last_read_ct_tick = current_tick;
+			last_send_lcd_tick = current_tick;
         } else {
             ESP_LOGW(TAG,"CONTROLLER-CRC-ERROR %s", bytesToHex(ct_received_msg,CT_OS_MSG_BYTES));
-            rxc_errors_cnt++;
             tsdz_data.ui8_rxc_errors++;
         }
-        if ((rxc_errors_cnt <= 2) && ((xTaskGetTickCount() - last_lcd_msg_tick) < pdMS_TO_TICKS(500))) {
-        	// Send message to controller only if a LCD message was received in the last 500ms
-            getControllerMessage(ct_send_msg);
-            uart_write_bytes(CT_UART, (char*)ct_send_msg, (size_t)LCD_OS_MSG_BYTES);
-            //ESP_LOGI(TAG, "Controller Message Sent: %s", bytesToHex(ct_send_msg,LCD_OS_MSG_BYTES));
-        }
     }
-
+	// Send a message to the LCD even if no valid messages are received from the controller
+	if ((current_tick - last_send_lcd_tick) > pdMS_TO_TICKS(100)) {
+		getLCDMessage(lcd_send_msg);
+		uart_write_bytes(LCD_UART, (char*)lcd_send_msg, (size_t)CT_OEM_MSG_BYTES);
+		last_send_lcd_tick = current_tick;
+		//ESP_LOGI(TAG, "LCD Message Sent: %s", bytesToHex(lcd_send_msg,CT_OEM_MSG_BYTES));
+	}
+	
     // Update Communication status bits of tsdz_data.ui8_system_state
-    if ((xTaskGetTickCount() - last_ct_msg_tick) < pdMS_TO_TICKS(550))
-        tsdz_data.ui8_system_state &= ~ERROR_CONTROLLER_COMMUNICATION;
-    else
+    if ((current_tick - last_read_ct_tick) > pdMS_TO_TICKS(500))
         tsdz_data.ui8_system_state |= ERROR_CONTROLLER_COMMUNICATION;
-    if ((xTaskGetTickCount() - last_lcd_msg_tick) < pdMS_TO_TICKS(550))
-        tsdz_data.ui8_system_state &= ~ERROR_LCD_COMMUNICATION;
     else
+        tsdz_data.ui8_system_state &= ~ERROR_CONTROLLER_COMMUNICATION;
+    if ((current_tick - last_read_lcd_tick) > pdMS_TO_TICKS(500))
         tsdz_data.ui8_system_state |= ERROR_LCD_COMMUNICATION;
+    else
+        tsdz_data.ui8_system_state &= ~ERROR_LCD_COMMUNICATION;
 }
 
 bool lcdMessageReceived(void) {

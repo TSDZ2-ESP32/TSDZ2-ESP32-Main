@@ -366,13 +366,19 @@ void getLCDMessage(uint8_t ct_oem_message[]) {
 }
 
 void processControllerMessage(const uint8_t ct_os_message[]) {
-    // update System Status
+    // ct_os_message[1]: message type + Controller Status
+	// Bit 0-1: Message type; 0=Normal message, 1=Motor Hall Calibration Message
+	// Bit 2: Controller UART receive error
     // Bit 3: brake state
-    // Bit 4-7: Controller Status
+    // Bit 4-7: Controller ERROR Status
     if (ct_os_message[1] & 0x08)
         tsdz_data.ui8_system_state |= BRAKE_STATE_BIT;
     else
         tsdz_data.ui8_system_state &= ~BRAKE_STATE_BIT;
+    if (ct_os_message[1] & 0x04)
+        tsdz_data.ui8_system_state |= ERROR_CONTROLLER_UART_BIT;
+    else
+        tsdz_data.ui8_system_state &= ~ERROR_CONTROLLER_UART_BIT;
     // Controller status
     tsdz_data.ui8_system_state = (tsdz_data.ui8_system_state & (~CONTROLLER_ERROR_MASK)) | ((ct_os_message[1] >> 4) & CONTROLLER_ERROR_MASK);
 

@@ -33,6 +33,15 @@ void tzdz_ds18b20_init(void) {
     ds18b20_init_solo(device, owb);          // only one device on bus
     ds18b20_use_crc(device, true);           // enable CRC check for temperature readings
     bool result = ds18b20_set_resolution(device, DS18B20_RESOLUTION_12_BIT);
+    // Check for parasitic-powered devices
+    bool parasitic_power = false;
+    ds18b20_check_for_parasite_power(owb, &parasitic_power);
+    if (parasitic_power) {
+        ESP_LOGI(TAG,"DS18B20 Parasitic-powered devices detected");
+    }
+    // In parasitic-power mode, devices cannot indicate when conversions are complete,
+    // so waiting for a temperature conversion must be done by waiting a prescribed duration
+    owb_use_parasitic_power(owb, parasitic_power);
 
     if (result && device->init) {
         initialized = 1;
