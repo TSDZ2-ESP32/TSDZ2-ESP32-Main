@@ -19,6 +19,7 @@
 #include "esp_bt.h"
 
 
+#include "main.h"
 #include "tsdz_uart.h"
 #include "tsdz_nvs.h"
 #include "tsdz_ota_stm8.h"
@@ -51,9 +52,11 @@ void app_main(void)
     // Read cfg from NVS
     ESP_LOGI(TAG, "Read cfg ...");
     tsdz_nvs_read_cfg();
-    // set log level and bike_locked according to NVS configured parameters
+    // set log level, bike_locked and street mode on startup according to NVS configured parameters
     setLogLevel();
     bike_locked = esp32_cfg.lock_enabled;
+    if (tsdz_cfg.ui8_flags & 0x08)
+        ui8_app_street_mode = STREET_MODE_FORCE_ON;
 
     // initialize the UART
     ESP_LOGI(TAG, "UART init ...");
